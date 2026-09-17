@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "profile": "local_test",
+  "purpose": "synthetic_forward_tests",
+  "device": "cpu",
+  "dtype": "float32",
+  "model": {
+    "audio_codebooks_per_stream": 8,
+    "audio_vocab_size": 32,
+    "text_vocab_size": 64,
+    "temporal": {
+      "dimension": 32,
+      "layers": 2,
+      "heads": 4,
+      "context": 16
+    },
+    "depth": {
+      "dimension": 16,
+      "layers": 2,
+      "heads": 2
+    },
+    "delays": [
+      0,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      0,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ]
+  },
+  "runtime": {
+    "max_session_frames": 14,
+    "initialization_reserve": 1,
+    "completion_reserve": 1
+  },
+  "data": {
+    "sequence_frames": 14,
+    "batch_size": 1
+  },
+  "training": {
+    "allow_training": false,
+    "max_steps": 1,
+    "learning_rate": 0.0001
+  },
+  "codec": {
+    "implementation": "synthetic",
+    "vocabulary_size": 32,
+    "token_semantics": "synthetic"
+  }
+}

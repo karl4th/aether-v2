@@ -1,0 +1,40 @@
+[project]
+name = "aether"
+version = "0.1.0"
+description = "Streaming speech dialogue research"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "pydantic>=2.10,<3",
+]
+
+[project.scripts]
+aether = "aether.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/aether"]
+
+[dependency-groups]
+dev = ["mypy>=1.15,<2", "pytest>=8.3,<10", "ruff>=0.11,<1"]
+audio = ["sounddevice>=0.5,<1", "soundfile>=0.13,<1"]
+# Training dependencies are selected after the Colab hardware preflight.
+train = []
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src/aether"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
