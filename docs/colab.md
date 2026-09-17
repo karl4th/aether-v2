@@ -6,21 +6,25 @@ Notebook подготовлен: `notebooks/aether_colab.ipynb`. Локальн�
 
 ## Что сделать пользователю
 
-1. Открыть notebook через загрузку файла в Colab. Выбрать удалённый управляемый
+Открыть [aether в Colab из GitHub](https://colab.research.google.com/github/karl4th/aether-v2/blob/main/notebooks/aether_colab.ipynb). Исходники загружаются через Git; архивы и ручной SHA-256 не нужны. Если репозиторий приватный, разрешите Colab доступ к GitHub для открытия notebook либо загрузите только `.ipynb`, затем добавьте read-only токен в Colab Secrets под именем `GITHUB_TOKEN` и разрешите этому notebook читать секрет. Токен не вставляется в ячейки, URL или Git remote.
+
+1. Открыть notebook по ссылке выше. Выбрать удалённый управляемый
    GPU runtime платного аккаунта; local runtime не подключать. Для BF16-кандидата
    ориентир 24+ ГБ GPU, но сначала требуется измерение фактически выделенной памяти.
 2. В настройках оставить `RUN_TRAINING=False`, `BUDGET_UNITS=500`, путь Drive
    `/content/drive/MyDrive/aether`. Задать уникальный `RUN_ID`, например
    `english-demo-preflight-001`. Подтвердить `CONFIRM_REMOTE_PAID_COLAB=True`
    только после проверки своего подключения и платного аккаунта в UI.
-3. Скопировать строку из `dist/aether-source.sha256` в `SOURCE_SHA256`.
-   В ячейке загрузки выбрать `dist/aether-source.zip`. Архив включает текущие
-   незакоммиченные исходники; git commit не выдумывается. Повторная сборка:
-   `uv run --locked python scripts/build_colab_bundle.py`.
+3. Оставить `REPO_URL="https://github.com/karl4th/aether-v2.git"` и `GIT_REF="main"`.
+   Notebook выполняет Git fetch и detached checkout полученного commit. Для
+   повторения конкретного запуска задайте `GIT_REF` равным `source_revision`
+   предыдущего отчёта. Незакоммиченные и неотправленные в GitHub изменения не попадут
+   в Colab. При обновлении notebook откройте его заново из той же версии Git.
 4. Выполнить ячейки по порядку. Установятся uv 0.12.13, Python 3.12.14 и только
    основные зависимости из lock-файла. Процесс пакета вызовет validation-only,
    соберёт RAM/диск/`nvidia-smi`, после авторизации Drive сохранит `preflight.json`
    в новый `runs/<RUN_ID>/`. Существующий run не перезаписывается.
+   Отчёт содержит URL репозитория, запрошенную ветку/тег и фактический commit SHA.
 5. Передать полученный `preflight.json` для выбора модельных зависимостей и
    допустимых размеров. Проверить расход юнитов в интерфейсе и отключить GPU
    runtime после получения отчёта, чтобы не оставлять платную среду простаивать.
