@@ -67,6 +67,14 @@ def build_parser() -> argparse.ArgumentParser:
     client.add_argument("--token-env", default="AETHER_LIVE_TOKEN")
     tunnel = commands.add_parser("tunnel", help="Expose a local port via a Cloudflare quick tunnel")
     tunnel.add_argument("--port", type=int, default=8080)
+    permit = commands.add_parser(
+        "permit", help="Create a runtime permit on a RunPod pod (no notebook)."
+    )
+    permit.add_argument("--confirm-remote-paid", action="store_true")
+    permit.add_argument("--allow-training", action="store_true")
+    permit.add_argument("--budget-units", type=int, required=True)
+    permit.add_argument("--hours", type=float, default=12.0)
+    permit.add_argument("--output", default="runtime-permit.json")
     return parser
 
 
@@ -168,6 +176,27 @@ def main(argv: Sequence[str] | None = None) -> int:
             from aether.tunnel import run_tunnel
 
             run_tunnel(args.port)
+            return 0
+        if args.command == "permit":
+            from aether.remote import create_runpod_permit
+
+            permit = create_runpod_permit(
+                confirm_remote_paid=args.confirm_remote_paid,
+                allow_training=args.allow_training,
+                budget_units=args.budget_units,
+                hours=args.hours,
+            )
+            Path(args.output).write_text(permit.model_dump_json())
+            print(
+                json.dumps(
+                    {
+                        "permit": args.output,
+                        "pod_id": permit.pod_id,
+                        "expires_at": permit.expires_at,
+                        "allow_training": permit.allow_training,
+                    }
+                )
+            )
             return 0
         if args.command == "inspect":
             from aether.artifacts import inspect_bundle
