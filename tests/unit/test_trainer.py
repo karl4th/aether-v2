@@ -2,6 +2,7 @@
 
 import ast
 import copy
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -75,6 +76,62 @@ def test_checkpoint_integrity_checked_before_model_access(monkeypatch, tmp_path)
     monkeypatch.setattr(trainer, "verify_checkpoint", verify)
     with pytest.raises(ValueError, match="broken manifest"):
         trainer.apply_checkpoint(object(), tmp_path)
+
+
+def _write_checkpoint_metadata(tmp_path, **overrides):
+    payload = {
+        "schema_version": 1,
+        "config": TrainingConfig().model_dump(),
+        "dataset": "a" * 64,
+        "source": "0" * 40,
+        "base": "weights",
+        "backend": "runtime",
+        "adapter": "adapter",
+        "step": 3,
+        **overrides,
+    }
+    checkpoint_dir = tmp_path / "checkpoint"
+    checkpoint_dir.mkdir()
+    (checkpoint_dir / "metadata.json").write_text(json.dumps(payload))
+    return checkpoint_dir
+
+
+def test_apply_checkpoint_for_inference_ignores_running_code_identity(monkeypatch, tmp_path):
+    checkpoint_dir = _write_checkpoint_metadata(tmp_path)
+    monkeypatch.setattr(trainer, "verify_checkpoint", Mock())
+    # Stand in for "what the currently running code's identity would compute":
+    # deliberately different from the checkpoint's own recorded source, to prove
+    # apply_checkpoint does not require them to match for inference (dataset=None).
+    monkeypatch.setattr(
+        trainer,
+        "_metadata",
+        lambda dataset, config: {
+            "schema_version": 1,
+            "config": config.model_dump(),
+            "dataset": None,
+            "source": "f" * 40,
+            "base": "weights",
+            "backend": "runtime",
+            "adapter": "adapter",
+        },
+    )
+    monkeypatch.setattr(trainer, "install_adapter", Mock(return_value=[]))
+    monkeypatch.setattr(trainer, "_load_adapter", Mock())
+    fake_backend = SimpleNamespace(
+        torch=SimpleNamespace(load=Mock(return_value={"adapter": {}})), lm=Mock()
+    )
+    metadata = trainer.apply_checkpoint(fake_backend, checkpoint_dir)
+    assert metadata["source"] == "0" * 40
+
+
+@pytest.mark.parametrize(
+    "bad_source", ["not-hex-not-hex-not-hex-not-hex-not-hexx", "abc", 123, None]
+)
+def test_apply_checkpoint_rejects_malformed_source_identity(monkeypatch, tmp_path, bad_source):
+    checkpoint_dir = _write_checkpoint_metadata(tmp_path, source=bad_source)
+    monkeypatch.setattr(trainer, "verify_checkpoint", Mock())
+    with pytest.raises(ValueError, match="invalid source revision identity"):
+        trainer.apply_checkpoint(SimpleNamespace(), checkpoint_dir)
 
 
 def test_local_training_denied_before_backend_access(monkeypatch, tmp_path):

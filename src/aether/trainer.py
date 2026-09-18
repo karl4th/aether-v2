@@ -204,6 +204,18 @@ def apply_checkpoint(
         expected["dataset"] = metadata.get("dataset")
         if not isinstance(expected["dataset"], str) or len(expected["dataset"]) != 64:
             raise ValueError("invalid dataset identity")
+        # Applying trained adapter weights for inference does not require the serving
+        # code to be the exact commit that produced them: unlike a training resume,
+        # no optimizer trajectory continues, so only base/backend/adapter compatibility
+        # (checked below) matters, not the trainer's own code identity.
+        expected["source"] = metadata.get("source")
+        digest = expected["source"]
+        if (
+            not isinstance(digest, str)
+            or len(digest) != 40
+            or any(c not in "0123456789abcdef" for c in digest)
+        ):
+            raise ValueError("invalid source revision identity")
     validate_resume(metadata, expected)
     state = backend.torch.load(checkpoint / "state.pt", map_location="cpu", weights_only=True)
     install_adapter(backend.lm, backend.torch, config)

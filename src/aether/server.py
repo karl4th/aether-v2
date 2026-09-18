@@ -6,6 +6,7 @@ import asyncio
 import importlib
 import json
 import secrets
+import traceback
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack
@@ -135,7 +136,15 @@ async def make_app(
             raise web.HTTPUnauthorized()
         ws = web.WebSocketResponse(max_msg_size=_MAX_FRAME_BYTES, compress=False, heartbeat=10)
         await ws.prepare(request)
-        if active or not healthy:
+        if not healthy:
+            # Distinct from BUSY: no session is active, a previous one crashed and this
+            # worker needs a restart. Reporting it as BUSY would hide that from the operator.
+            await ws.send_json(
+                {"type": "session.error", "code": "UNHEALTHY", "message": "Worker needs a restart"}
+            )
+            await ws.close()
+            return ws
+        if active:
             await ws.send_json({"type": "session.error", "code": "BUSY", "message": "Unavailable"})
             await ws.close()
             return ws
@@ -255,6 +264,9 @@ async def make_app(
         except Exception:
             code = "MODEL_ERROR"
             healthy = False
+            # Never sent to the client, but this is the only record of what actually
+            # broke; without it, MODEL_ERROR/UNHEALTHY is undiagnosable after the fact.
+            traceback.print_exc()
         finally:
             for task in tasks:
                 task.cancel()
@@ -266,6 +278,7 @@ async def make_app(
                 except Exception:
                     healthy = False
                     code = "MODEL_ERROR"
+                    traceback.print_exc()
             buffer.reset()
             try:
                 if not ws.closed:

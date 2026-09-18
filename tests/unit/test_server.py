@@ -143,6 +143,17 @@ def test_model_error_marks_backend_unhealthy() -> None:
             await ws.close()
             assert (await client.get("/health/ready")).status == 503
 
+            # A crash must not be reported as BUSY: an operator needs to tell "someone
+            # else is talking" apart from "this worker crashed and needs a restart".
+            second = await client.ws_connect("/v1/session")
+            event = await second.receive_json()
+            assert event == {
+                "type": "session.error",
+                "code": "UNHEALTHY",
+                "message": "Worker needs a restart",
+            }
+            await second.close()
+
     asyncio.run(run())
 
 

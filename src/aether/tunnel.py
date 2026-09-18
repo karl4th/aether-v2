@@ -104,8 +104,11 @@ def _read_url(process: subprocess.Popen[str], timeout: float) -> str:
 def run_tunnel(port: int) -> None:
     """Foreground helper for the CLI: print the URL, then block until interrupted."""
     with cloudflare_tunnel(port) as url:
-        print(f"TUNNEL_READY: {url}")
-        print(f"Live session endpoint: {url.replace('https://', 'wss://')}/v1/session")
+        # flush=True: this process's stdout is a pipe, not a tty, when launched
+        # via `uv run` from a notebook cell, so CPython block-buffers by
+        # default and these lines would otherwise sit unseen until exit.
+        print(f"TUNNEL_READY: {url}", flush=True)
+        print(f"Live session endpoint: {url.replace('https://', 'wss://')}/v1/session", flush=True)
         try:
             while True:
                 time.sleep(3600)
