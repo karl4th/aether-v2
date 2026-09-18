@@ -259,12 +259,15 @@ async def make_app(
                     reason = result
             if reason in {"AUDIO_TIMEOUT", "CONTEXT_LIMIT"}:
                 code = reason
-        except (ValueError, TypeError):
+        except (ValueError, TypeError) as error:
             code = "PROTOCOL_ERROR"
-        except (asyncio.QueueFull, BufferError):
+            print(f"PROTOCOL_ERROR: {error}", flush=True)
+        except (asyncio.QueueFull, BufferError) as error:
             code = "OVERLOAD"
-        except TimeoutError:
+            print(f"OVERLOAD: {error!r} (a bounded queue could not drain in time)", flush=True)
+        except TimeoutError as error:
             code = "AUDIO_TIMEOUT"
+            print(f"AUDIO_TIMEOUT: {error}", flush=True)
         except Exception:
             code = "MODEL_ERROR"
             healthy = False
@@ -314,27 +317,39 @@ async def make_app(
     return app
 
 
-def _warm_up(engine: Engine, *, steps: int = 12) -> None:
+def _warm_up(engine: Engine, *, steps: int = 40) -> None:
     """Run real forward passes on silent audio so CUDA kernels are compiled and
-    cached before the first real client connects, not during its live session.
+    the caching allocator is stable before the first real client connects.
 
-    The first few real steps of a cold model are routinely much slower than
-    steady state; without this, that slowdown showed up as a same-session
-    OVERLOAD (the bounded queue filling faster than it could be drained).
+    The first several real steps of a cold model are routinely much slower than
+    steady state, and PyTorch's caching allocator can keep taking occasional
+    slow paths (real cudaMalloc calls) for more steps than a short warm-up
+    covers; either shows up as a same-session OVERLOAD once a real client
+    starts streaming audio in real time (a bounded queue filling faster than
+    it can drain). Every step's time is logged so a persistent slow steady
+    state is distinguishable from a handful of one-off allocator spikes.
     """
     print(f"Warming up: running {steps} synthetic steps on silent audio...", flush=True)
     silence = encode_pcm([0.0] * FRAME_SAMPLES)
     engine.start(seed=0)
     try:
         timings = []
-        for _ in range(steps):
+        for index in range(steps):
             started = time.monotonic()
             engine.step(silence)
-            timings.append(time.monotonic() - started)
+            elapsed = time.monotonic() - started
+            timings.append(elapsed)
+            print(f"  warm-up step {index + 1}/{steps}: {elapsed * 1000:.0f}ms", flush=True)
     finally:
         engine.close()
-    low, mean, high = min(timings) * 1000, sum(timings) / len(timings) * 1000, max(timings) * 1000
-    print(f"Warm-up done: step time (ms) min={low:.0f} mean={mean:.0f} max={high:.0f}", flush=True)
+    ordered = sorted(timings)
+    low, median, high = ordered[0] * 1000, ordered[len(ordered) // 2] * 1000, ordered[-1] * 1000
+    over_budget = sum(1 for t in timings if t > 0.080)
+    print(
+        f"Warm-up done: step time (ms) min={low:.0f} median={median:.0f} max={high:.0f}; "
+        f"{over_budget}/{steps} steps exceeded the 80ms real-time frame budget",
+        flush=True,
+    )
 
 
 def _load_engine_once(
