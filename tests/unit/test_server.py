@@ -1,14 +1,16 @@
 """Real loopback transport with deterministic, CPU-only fake engines."""
 
 import asyncio
+from contextlib import contextmanager
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
 from aiohttp.test_utils import TestClient, TestServer
 
-from aether import backend, trainer
+from aether import backend, server, trainer
 from aether.protocol import AudioPacket
-from aether.server import StreamOutput, _default_engine_factory, make_app
+from aether.server import LiveBackend, StreamOutput, _load_engine_once, make_app
 
 START = {
     "type": "session.start",
@@ -223,7 +225,7 @@ def test_disconnect_releases_the_slot_for_a_new_session() -> None:
     asyncio.run(run())
 
 
-def test_default_engine_factory_applies_checkpoint_when_given(
+def test_load_engine_once_applies_checkpoint_when_given(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_backend = object()
@@ -232,16 +234,18 @@ def test_default_engine_factory_applies_checkpoint_when_given(
     monkeypatch.setattr(backend, "load_backend", load_backend)
     monkeypatch.setattr(trainer, "apply_checkpoint", apply_checkpoint)
 
-    _default_engine_factory("permit.json", checkpoint="checkpoints/step-000020")()
+    factory = _load_engine_once("permit.json", checkpoint="checkpoints/step-000020")
 
     load_backend.assert_called_once_with("permit.json", context=256)
     apply_checkpoint.assert_called_once()
     args = apply_checkpoint.call_args.args
     assert args[0] is fake_backend
     assert str(args[1]) == "checkpoints/step-000020"
+    # Weights load once: every call to the returned factory reuses the same engine.
+    assert factory() is factory()
 
 
-def test_default_engine_factory_skips_checkpoint_when_absent(
+def test_load_engine_once_skips_checkpoint_when_absent(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_backend = object()
@@ -250,6 +254,38 @@ def test_default_engine_factory_skips_checkpoint_when_absent(
     monkeypatch.setattr(backend, "load_backend", load_backend)
     monkeypatch.setattr(trainer, "apply_checkpoint", apply_checkpoint)
 
-    _default_engine_factory("permit.json")()
+    _load_engine_once("permit.json")
 
     apply_checkpoint.assert_not_called()
+
+
+def test_live_backend_rewarms_on_every_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression: reusing one preloaded LiveBackend across sessions must not skip
+    the per-session delay warm-up after the first session already flipped it off."""
+
+    @contextmanager
+    def noop():  # type: ignore[no-untyped-def]
+        yield
+
+    fake_backend = SimpleNamespace(
+        torch=SimpleNamespace(manual_seed=Mock(), inference_mode=noop),
+        codec=SimpleNamespace(streaming=lambda count: noop()),
+        lm=Mock(),
+    )
+    fake_generator = SimpleNamespace(streaming=lambda count: noop())
+    fake_models = SimpleNamespace(LMGen=Mock(return_value=fake_generator))
+    real_import_module = server.importlib.import_module
+    monkeypatch.setattr(
+        server.importlib,
+        "import_module",
+        lambda name: fake_models if name == "moshi.models" else real_import_module(name),
+    )
+
+    live = LiveBackend(fake_backend)
+    live.start(seed=1)
+    assert live.first is True
+    live.first = False  # Simulate having already stepped through the first frame.
+    live.close()
+
+    live.start(seed=2)  # A second, sequential session reusing the same instance.
+    assert live.first is True

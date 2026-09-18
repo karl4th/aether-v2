@@ -98,8 +98,14 @@ async def talk(
     duration: float | None = None,
     seed: int = 42,
     auth_token: str | None = None,
+    ready_timeout: float = 300.0,
 ) -> None:
-    """Open the microphone/speaker and a live protocol-v1 session; blocks until closed."""
+    """Open the microphone/speaker and a live protocol-v1 session; blocks until closed.
+
+    ready_timeout is generous by default: a server that loads weights lazily on
+    the first session (rather than once at startup) can easily exceed 30 seconds
+    on a cold cache, and a short timeout here just races that instead of it.
+    """
     aiohttp = importlib.import_module("aiohttp")
     sounddevice = importlib.import_module("sounddevice")
     bridge = AudioBridge()
@@ -117,7 +123,7 @@ async def talk(
                     "seed": seed,
                 }
             )
-            ready = await asyncio.wait_for(ws.receive_json(), timeout=30)
+            ready = await asyncio.wait_for(ws.receive_json(), timeout=ready_timeout)
             if not isinstance(ready, dict) or ready.get("type") != "session.ready":
                 raise RuntimeError(f"SESSION_START_FAILED: {ready}")
             # Context managers stop and close both devices on error or cancellation.

@@ -65,6 +65,7 @@ def build_parser() -> argparse.ArgumentParser:
     client.add_argument("--duration", type=float)
     client.add_argument("--seed", type=int, default=42)
     client.add_argument("--token-env", default="AETHER_LIVE_TOKEN")
+    client.add_argument("--ready-timeout", type=float, default=300.0)
     tunnel = commands.add_parser("tunnel", help="Expose a local port via a Cloudflare quick tunnel")
     tunnel.add_argument("--port", type=int, default=8080)
     permit = commands.add_parser(
@@ -169,6 +170,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     duration=args.duration,
                     seed=args.seed,
                     auth_token=os.environ.get(args.token_env),
+                    ready_timeout=args.ready_timeout,
                 )
             )
             return 0

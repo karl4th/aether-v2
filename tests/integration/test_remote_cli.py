@@ -125,8 +125,18 @@ def test_talk_cli_forwards_url_duration_and_seed(monkeypatch: pytest.MonkeyPatch
 
     calls = []
 
-    async def fake_talk(url: str, *, duration=None, seed=42, auth_token=None) -> None:
-        calls.append(dict(url=url, duration=duration, seed=seed, auth_token=auth_token))
+    async def fake_talk(
+        url: str, *, duration=None, seed=42, auth_token=None, ready_timeout=300.0
+    ) -> None:
+        calls.append(
+            dict(
+                url=url,
+                duration=duration,
+                seed=seed,
+                auth_token=auth_token,
+                ready_timeout=ready_timeout,
+            )
+        )
 
     monkeypatch.setattr(client, "talk", fake_talk)
     monkeypatch.delenv("AETHER_LIVE_TOKEN", raising=False)
@@ -134,7 +144,13 @@ def test_talk_cli_forwards_url_duration_and_seed(monkeypatch: pytest.MonkeyPatch
         main(["talk", "--url", "wss://example.invalid/live", "--duration", "5", "--seed", "7"]) == 0
     )
     assert calls == [
-        {"url": "wss://example.invalid/live", "duration": 5.0, "seed": 7, "auth_token": None}
+        {
+            "url": "wss://example.invalid/live",
+            "duration": 5.0,
+            "seed": 7,
+            "auth_token": None,
+            "ready_timeout": 300.0,
+        }
     ]
 
 

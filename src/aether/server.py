@@ -55,6 +55,9 @@ class LiveBackend:
         self.stack.enter_context(b.torch.inference_mode())
         self.stack.enter_context(b.codec.streaming(1))
         self.stack.enter_context(self.generator.streaming(1))
+        # This instance is reused across sequential sessions (weights load once at
+        # server startup); each new session needs its own delay warm-up regardless.
+        self.first = True
 
     def step(self, pcm: bytes) -> StreamOutput | None:
         b = self.backend
@@ -310,21 +313,27 @@ async def make_app(
     return app
 
 
-def _default_engine_factory(
+def _load_engine_once(
     permit_path: str, *, context: int = 256, checkpoint: str | None = None
 ) -> Callable[[], Engine]:
+    """Load weights exactly once, at startup; every session reuses this instance.
+
+    Loading is slow (a cold cache downloads ~15 GB); doing it per-session made
+    every new connection re-download and re-load the model, which routinely
+    outran the client's own wait for `session.ready`.
+    """
     from aether.backend import load_backend
 
-    def factory() -> Engine:
-        # load_backend re-checks the remote-runtime permit and VRAM admission itself.
-        backend = load_backend(permit_path, context=context)
-        if checkpoint is not None:
-            from aether.trainer import apply_checkpoint
+    print("Loading model weights (a cold cache can take several minutes)...", flush=True)
+    backend = load_backend(permit_path, context=context)
+    if checkpoint is not None:
+        from aether.trainer import apply_checkpoint
 
-            apply_checkpoint(backend, Path(checkpoint))
-        return LiveBackend(backend)
-
-    return factory
+        print(f"Applying adapter checkpoint: {checkpoint}", flush=True)
+        apply_checkpoint(backend, Path(checkpoint))
+    engine = LiveBackend(backend)
+    print("Model loaded; starting the live service.", flush=True)
+    return lambda: engine
 
 
 def serve(
@@ -338,18 +347,17 @@ def serve(
     """Run the live service in the foreground; blocks until interrupted."""
     web = importlib.import_module("aiohttp.web")
 
-    async def authorize() -> None:
+    def authorize() -> None:
         from aether.remote import require_remote_runtime
 
         require_remote_runtime(permit_path=permit_path)
 
-    async def build() -> Any:
-        return await make_app(
-            _default_engine_factory(permit_path, checkpoint=checkpoint),
-            token=token,
-            authorize=authorize,
-        )
+    engine_factory = _load_engine_once(permit_path, checkpoint=checkpoint)
 
+    async def build() -> Any:
+        return await make_app(engine_factory, token=token, authorize=authorize)
+
+    print(f"Listening on {host}:{port} (Ctrl-C to stop).", flush=True)
     web.run_app(build(), host=host, port=port, print=None)
 
 
