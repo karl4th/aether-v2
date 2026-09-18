@@ -10,8 +10,11 @@ from pathlib import Path
 import pytest
 
 
-def test_git_checkout_is_pinned_and_repeatable(tmp_path: Path) -> None:
-    notebook = json.loads(Path("notebooks/aether_colab.ipynb").read_text())
+@pytest.mark.parametrize(
+    "notebook_path", ["notebooks/aether_colab.ipynb", "notebooks/aether_live_v1.ipynb"]
+)
+def test_git_checkout_is_pinned_and_repeatable(tmp_path: Path, notebook_path: str) -> None:
+    notebook = json.loads(Path(notebook_path).read_text())
     functions = []
     for cell in notebook["cells"]:
         if cell["cell_type"] == "code":
