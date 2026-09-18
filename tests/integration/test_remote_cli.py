@@ -117,6 +117,7 @@ def test_serve_cli_forwards_host_port_and_token(
         port=9090,
         token="secret",
         checkpoint="checkpoints/step-000020",
+        queue_frames=25,
     )
 
 

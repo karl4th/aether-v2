@@ -60,6 +60,7 @@ def build_parser() -> argparse.ArgumentParser:
     server.add_argument("--port", type=int, default=8080)
     server.add_argument("--token-env", default="AETHER_LIVE_TOKEN")
     server.add_argument("--checkpoint")
+    server.add_argument("--queue-frames", type=int, default=25)
     client = commands.add_parser("talk", help="Open the microphone/speaker and a live client.")
     client.add_argument("--url", required=True)
     client.add_argument("--duration", type=float)
@@ -159,6 +160,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 port=args.port,
                 token=os.environ.get(args.token_env),
                 checkpoint=args.checkpoint,
+                queue_frames=args.queue_frames,
             )
             return 0
         if args.command == "talk":

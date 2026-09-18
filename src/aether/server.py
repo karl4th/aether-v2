@@ -111,6 +111,7 @@ async def make_app(
     max_duration_ms: int = 230000,
     token: str | None = None,
     authorize: Callable[[], Any] | None = None,
+    queue_frames: int = 6,
 ) -> Any:
     """Construct a service around an already loaded/warmed engine factory."""
     web = importlib.import_module("aiohttp.web")
@@ -158,11 +159,11 @@ async def make_app(
         tasks: list[asyncio.Task[Any]] = []
         reason = "disconnect"
         code: str | None = None
-        incoming: asyncio.Queue[bytes] = asyncio.Queue(maxsize=6)
-        outgoing: asyncio.Queue[tuple[int, StreamOutput]] = asyncio.Queue(maxsize=6)
+        incoming: asyncio.Queue[bytes] = asyncio.Queue(maxsize=queue_frames)
+        outgoing: asyncio.Queue[tuple[int, StreamOutput]] = asyncio.Queue(maxsize=queue_frames)
         last_audio = loop.time()
         sequence = PacketSequence(1)
-        buffer = PCMBuffer(max_queue_frames=6)
+        buffer = PCMBuffer(max_queue_frames=queue_frames)
 
         async def receive() -> str:
             nonlocal last_audio
@@ -384,8 +385,15 @@ def serve(
     port: int = 8080,
     token: str | None = None,
     checkpoint: str | None = None,
+    queue_frames: int = 25,
 ) -> None:
-    """Run the live service in the foreground; blocks until interrupted."""
+    """Run the live service in the foreground; blocks until interrupted.
+
+    queue_frames default (25 frames, ~2s) is higher than the original 6-frame
+    (~480ms) design target: measurement showed steady-state steps well inside
+    the 80ms budget, but occasional one-off spikes (allocator/network) that a
+    480ms buffer had essentially no slack to absorb.
+    """
     web = importlib.import_module("aiohttp.web")
 
     def authorize() -> None:
@@ -396,7 +404,9 @@ def serve(
     engine_factory = _load_engine_once(permit_path, checkpoint=checkpoint)
 
     async def build() -> Any:
-        return await make_app(engine_factory, token=token, authorize=authorize)
+        return await make_app(
+            engine_factory, token=token, authorize=authorize, queue_frames=queue_frames
+        )
 
     print(f"Listening on {host}:{port} (Ctrl-C to stop).", flush=True)
     web.run_app(build(), host=host, port=port, print=None)

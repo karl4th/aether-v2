@@ -189,6 +189,27 @@ def test_authorize_gate_runs_before_engine_construction() -> None:
     asyncio.run(run())
 
 
+def test_queue_frames_parameter_controls_overload_threshold() -> None:
+    class SlowEngine(FakeEngine):
+        def step(self, pcm: bytes) -> StreamOutput | None:
+            import time as _time
+
+            _time.sleep(0.2)  # Slower than frames can be produced below.
+            return super().step(pcm)
+
+    async def run() -> None:
+        app = await make_app(SlowEngine, queue_frames=1)
+        async with TestClient(TestServer(app)) as client:
+            ws = await connect(client)
+            for index in range(4):
+                await ws.send_bytes(audio_packet(index))
+            event = await ws.receive_json()
+            assert event["code"] == "OVERLOAD"
+            await ws.close()
+
+    asyncio.run(run())
+
+
 def test_context_limit_closes_session() -> None:
     async def run() -> None:
         async with TestClient(TestServer(await make_app(FakeEngine, max_duration_ms=10))) as client:
