@@ -26,6 +26,23 @@ def encode_pcm(values: Sequence[float]) -> bytes:
     return struct.pack(f"<{len(values)}f", *values)
 
 
+def sanitize_pcm(payload: bytes) -> bytes:
+    """Clamp raw hardware capture into the protocol's valid range.
+
+    Microphone drivers give no guarantee against a transient sample landing
+    outside [-1, 1] (input gain, clipping, buffer glitches) or producing NaN;
+    the protocol validates strictly, so real hardware input is sanitized here
+    rather than relaxing that validation for every other caller.
+    """
+    if len(payload) % 4:
+        raise ValueError("PCM must contain complete float32 little-endian samples")
+    clamped = tuple(
+        0.0 if not math.isfinite(value[0]) else max(-1.0, min(1.0, value[0]))
+        for value in struct.iter_unpack("<f", payload)
+    )
+    return struct.pack(f"<{len(clamped)}f", *clamped)
+
+
 @dataclass(frozen=True)
 class AudioFrame:
     index: int

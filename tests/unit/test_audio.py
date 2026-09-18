@@ -4,7 +4,14 @@ import struct
 
 import pytest
 
-from aether.audio import FRAME_SAMPLES, PCMBuffer, decode_pcm, encode_pcm, resample_pcm
+from aether.audio import (
+    FRAME_SAMPLES,
+    PCMBuffer,
+    decode_pcm,
+    encode_pcm,
+    resample_pcm,
+    sanitize_pcm,
+)
 
 
 def drain(buffer: PCMBuffer) -> bytes:
@@ -68,6 +75,16 @@ def test_bad_packets_do_not_change_state(pcm: bytes) -> None:
     with pytest.raises(ValueError):
         buffer.push(pcm)
     assert buffer.received_samples == buffer.buffered_samples == buffer.accepted_packets == 0
+
+
+def test_sanitize_pcm_clamps_out_of_range_and_replaces_non_finite() -> None:
+    raw = struct.pack("<5f", 1.5, -1.5, float("nan"), float("inf"), 0.25)
+    assert decode_pcm(sanitize_pcm(raw)) == (1.0, -1.0, 0.0, 0.0, 0.25)
+
+
+def test_sanitize_pcm_rejects_incomplete_samples() -> None:
+    with pytest.raises(ValueError):
+        sanitize_pcm(b"123")
 
 
 def test_silence_absence_tail_reset_and_session_isolation() -> None:

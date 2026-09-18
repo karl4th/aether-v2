@@ -192,3 +192,12 @@ def test_audio_bridge_input_callback_reports_full_queue() -> None:
     bridge.input_callback(b"\x00" * 4, 1, None, None)
     bridge.input_callback(b"\x00" * 4, 1, None, None)
     assert bridge.errors.get_nowait() == "CAPTURE_QUEUE_FULL"
+
+
+def test_audio_bridge_input_callback_sanitizes_out_of_range_hardware_samples() -> None:
+    import struct
+
+    bridge = client.AudioBridge()
+    bridge.input_callback(struct.pack("<f", 1.5), 1, None, None)
+    assert bridge.capture.get_nowait() == struct.pack("<f", 1.0)
+    assert bridge.errors.empty()

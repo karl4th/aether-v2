@@ -8,6 +8,7 @@ import json
 import queue
 from typing import Any
 
+from aether.audio import sanitize_pcm
 from aether.protocol import AudioPacket, PacketSequence
 
 
@@ -31,7 +32,7 @@ class AudioBridge:
             self.fail(f"CAPTURE_ERROR: {status}")
             return
         try:
-            self.capture.put_nowait(bytes(indata))
+            self.capture.put_nowait(sanitize_pcm(bytes(indata)))
         except queue.Full:
             self.fail("CAPTURE_QUEUE_FULL")
 
