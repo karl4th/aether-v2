@@ -1,7 +1,9 @@
 """Backend-free CLI parsing; real GPU operations require a live notebook permit."""
 
 import argparse
+import asyncio
 import json
+import os
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -52,6 +54,19 @@ def build_parser() -> argparse.ArgumentParser:
             command.add_argument("--validate-only", action="store_true")
             command.add_argument("--resume")
             command.add_argument("--stop-after-steps", type=int)
+    server = commands.add_parser("serve", help="Run the guarded live WebSocket backend in Colab.")
+    server.add_argument("--permit", required=True)
+    server.add_argument("--host", default="127.0.0.1")
+    server.add_argument("--port", type=int, default=8080)
+    server.add_argument("--token-env", default="AETHER_LIVE_TOKEN")
+    server.add_argument("--checkpoint")
+    client = commands.add_parser("talk", help="Open the microphone/speaker and a live client.")
+    client.add_argument("--url", required=True)
+    client.add_argument("--duration", type=float)
+    client.add_argument("--seed", type=int, default=42)
+    client.add_argument("--token-env", default="AETHER_LIVE_TOKEN")
+    tunnel = commands.add_parser("tunnel", help="Expose a local port via a Cloudflare quick tunnel")
+    tunnel.add_argument("--port", type=int, default=8080)
     return parser
 
 
@@ -126,6 +141,34 @@ def _remote_operation(args: argparse.Namespace) -> dict[str, Any]:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        if args.command == "serve":
+            from aether.server import serve
+
+            serve(
+                args.permit,
+                host=args.host,
+                port=args.port,
+                token=os.environ.get(args.token_env),
+                checkpoint=args.checkpoint,
+            )
+            return 0
+        if args.command == "talk":
+            from aether.client import talk
+
+            asyncio.run(
+                talk(
+                    args.url,
+                    duration=args.duration,
+                    seed=args.seed,
+                    auth_token=os.environ.get(args.token_env),
+                )
+            )
+            return 0
+        if args.command == "tunnel":
+            from aether.tunnel import run_tunnel
+
+            run_tunnel(args.port)
+            return 0
         if args.command == "inspect":
             from aether.artifacts import inspect_bundle
 

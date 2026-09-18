@@ -84,3 +84,64 @@ def test_training_cli_pilot_and_resume_dispatch_only(
     assert train.call_args.args[0] is manifest
     assert train.call_args.kwargs["stop_after_steps"] == 5
     assert train.call_args.kwargs["resume"] == Path("previous")
+
+
+def test_serve_cli_forwards_host_port_and_token(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from aether import server
+
+    served = Mock()
+    monkeypatch.setattr(server, "serve", served)
+    monkeypatch.setenv("AETHER_LIVE_TOKEN", "secret")
+    permit = str(tmp_path / "permit.json")
+    assert (
+        main(
+            [
+                "serve",
+                "--permit",
+                permit,
+                "--host",
+                "0.0.0.0",
+                "--port",
+                "9090",
+                "--checkpoint",
+                "checkpoints/step-000020",
+            ]
+        )
+        == 0
+    )
+    served.assert_called_once_with(
+        permit,
+        host="0.0.0.0",
+        port=9090,
+        token="secret",
+        checkpoint="checkpoints/step-000020",
+    )
+
+
+def test_talk_cli_forwards_url_duration_and_seed(monkeypatch: pytest.MonkeyPatch) -> None:
+    from aether import client
+
+    calls = []
+
+    async def fake_talk(url: str, *, duration=None, seed=42, auth_token=None) -> None:
+        calls.append(dict(url=url, duration=duration, seed=seed, auth_token=auth_token))
+
+    monkeypatch.setattr(client, "talk", fake_talk)
+    monkeypatch.delenv("AETHER_LIVE_TOKEN", raising=False)
+    assert (
+        main(["talk", "--url", "wss://example.invalid/live", "--duration", "5", "--seed", "7"]) == 0
+    )
+    assert calls == [
+        {"url": "wss://example.invalid/live", "duration": 5.0, "seed": 7, "auth_token": None}
+    ]
+
+
+def test_tunnel_cli_forwards_port(monkeypatch: pytest.MonkeyPatch) -> None:
+    from aether import tunnel
+
+    calls = []
+    monkeypatch.setattr(tunnel, "run_tunnel", calls.append)
+    assert main(["tunnel", "--port", "9999"]) == 0
+    assert calls == [9999]

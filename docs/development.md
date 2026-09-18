@@ -10,7 +10,7 @@ The target notebook is `notebooks/aether_colab.ipynb`. It invokes the package vi
 
 Python 3.12 is the project's initial minor version. The exact patch version is pinned when the environment is created. uv manages Python, `.venv`, dependencies, and commands. `pyproject.toml` defines the package, `uv.lock` pins the resolved dependencies; both files are tracked in Git.
 
-The CLI scaffold is set up; `--help` and `--version` work. `train --validate-only` validates the schema, `inspect --config ... --manifest ...` validates a synthetic bundle; `infer`, `prepare-data`, `train`, `evaluate` are available given remote runtime authorization; `train` without `--validate-only` returns `TRAINING_ENVIRONMENT_REQUIRED`. The command semantics below describe the target design, not functionality that is already available.
+The CLI scaffold is set up; `--help` and `--version` work. `train --validate-only` validates the schema, `inspect --config ... --manifest ...` validates a synthetic bundle; `infer`, `prepare-data`, `train`, `evaluate`, `serve`, `talk`, `tunnel` are available given remote runtime authorization or explicit local use; `train` without `--validate-only` returns `TRAINING_ENVIRONMENT_REQUIRED`. The command semantics below describe the target design, not functionality that is already available.
 
 | Layer | Choice |
 |---|---|
@@ -19,7 +19,8 @@ The CLI scaffold is set up; `--help` and `--version` work. `train --validate-onl
 | Weights | safetensors |
 | Text tokenizer | SentencePiece, compatible with the weights |
 | Configuration validation | Pydantic |
-| Reading audio files | soundfile |
+| Server and WebSocket | aiohttp |
+| Local audio device I/O | sounddevice; file reading uses soundfile |
 | CLI | argparse from the standard library |
 | Tests | pytest, pytest-asyncio |
 | Style and static checks | Ruff, mypy |
@@ -37,6 +38,9 @@ src/aether/
   audio/          capture.py, resample.py, buffers.py
   model/          codec.py, quantizer.py, temporal.py, depth.py, embeddings.py
   inference/      engine.py, scheduler.py, state.py, checkpoint.py
+  server.py       protocol-v1 WebSocket service, bounded queues, single session
+  client.py       microphone/speaker bridge over the same protocol
+  tunnel.py       Cloudflare quick tunnel helper, since Colab has no public IP
   training/       dataset.py, alignment.py, losses.py, trainer.py
   evaluation/     runner.py, metrics.py, report.py
 tests/
@@ -52,7 +56,7 @@ notebooks/
   aether_colab.ipynb
 ```
 
-The model does not import the CLI or audio devices. Data preparation does not depend on live sessions. Shared contracts are defined once.
+The model does not import the CLI or audio devices. The server does not implement token sampling itself; it calls the same engine used offline. Data preparation does not depend on live sessions. Shared contracts are defined once.
 
 ## 3. Environment
 
@@ -71,15 +75,16 @@ Adding a dependency is done via `uv add`, and development tools via `uv add --gr
 
 ## 4. Dependency Groups
 
-- Main package: model inference output, configuration, and weight loading.
+- Main package: model inference output, configuration, weight loading, and the server.
 - `dev`: testing, formatting, and type checking.
 - `model`: pinned Python backend, PyTorch/torchaudio 2.8, and weight dependencies. Installed only in Colab.
 - `train`: includes `model`; local tests do not install this group.
+- `audio`: local input/output device access for the `talk` client.
 
 These are dependency groups in `pyproject.toml`. The examples below assume they are defined. Experimental libraries are not all added to the main group.
 
 ```bash
-uv sync --locked --group dev
+uv sync --locked --group dev --group audio
 uv run --locked --group dev ruff check .
 uv run --locked --group dev ruff format --check .
 uv run --locked --group dev mypy src/aether
@@ -91,6 +96,8 @@ uv run --locked --group dev pytest
 ```bash
 uv run --locked aether inspect --config configs/model/base.json
 uv run --locked aether infer --config configs/model/base.json --input sample.wav --output answer.wav
+uv run --locked aether serve --config configs/runtime/local.json
+uv run --locked --group audio aether talk --url ws://127.0.0.1:8998/v1/session
 uv run --locked aether evaluate --config configs/evaluation.json
 ```
 
@@ -102,7 +109,7 @@ uv run --locked --group train aether train --config configs/training/adapter.jso
 
 Locally, only validation of the training configuration via `train --validate-only` is permitted, without creating an optimizer or starting training.
 
-`inspect` checks files, sizes, vocabularies, dtype, device, and memory without opening the microphone. `infer` also saves the text and manifest. `evaluate` does not modify weights. `train` writes to a new run directory without overwriting the previous experiment.
+`inspect` checks files, sizes, vocabularies, dtype, device, and memory without opening the microphone. `infer` also saves the text and manifest. `serve` warms the worker up to readiness. `talk` explicitly opens the microphone. `evaluate` does not modify weights. `train` writes to a new run directory without overwriting the previous experiment.
 
 ## 6. Implementation Style
 

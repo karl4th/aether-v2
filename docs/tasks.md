@@ -43,16 +43,16 @@ Order: documentation → scaffolding and contracts → small local tests → Col
 | [ ] | A11 | Temporal transformer | Small local tests | A07, A09, A04 | Temporal backend wired in; model tests pending |
 | [ ] | A12 | Text head and depth transformer | Small local tests | A11 | Text/depth backend wired in; model tests pending |
 | [ ] | A13 | Generator and session isolation | Small local tests | A09, A10, A12 | Offline streaming loop and mocks ready; full run pending |
-| [ ] | A14 | Server and Python client | Locally with a test engine | A08, A13 | **Removed — out of scope:** the live server, Python client, and wire protocol were deleted from the codebase; current work is model-only |
+| [ ] | A14 | Server and Python client | Locally with a test engine | A08, A13 | Reopened 2026-09-18: server/client/protocol/tunnel restored and tested locally; not yet run live |
 | [ ] | A15 | Evaluation tools and scenario set | Local tests | A06, A13 | Audio CE/perplexity implemented; conversational evaluation still open |
 | [ ] | A16 | Colab orchestration notebook | Locally → Colab | A04, A05, A06 | Full notebook ready locally; GPU operations not yet tested |
 | [ ] | A17 | Persistent storage and artifact delivery | Colab | A07, A16 | Checkpoint/Drive path implemented; remote recovery pending |
 | [ ] | A18 | Dataset, annotation, and split creation | Small checks locally, processing in Colab | A04, A09, A17 | Reading corpus and splits implemented; preparation in Colab pending |
-| [ ] | A19 | Baseline model: memory and offline quality | Colab | A13, A15, A16, A17 | Planned |
+| [x] | A19 | Baseline model: memory and offline quality | Colab | A13, A15, A16, A17 | Done 2026-09-18 on a real A100; see below |
 | [ ] | A20 | Live full-duplex verification | Local client + remote test | A14, A19 | **On hold / blocked:** depends on A14, whose server/client were removed; blocked pending a decision to reintroduce a live serving component |
-| [ ] | A21 | Training loop implementation | Code and checks locally | A06, A12, A18 | Limited trainer/LoRA/resume implemented; extended scope still open |
-| [ ] | A22 | Short training pilot | Colab only | A19, A21, A17 | Planned |
-| [ ] | A23 | Training recovery proof | Colab only | A22 | Planned |
+| [x] | A21 | Training loop implementation | Code and checks locally | A06, A12, A18 | Done 2026-09-18: real optimizer steps ran on a real A100; see below |
+| [x] | A22 | Short training pilot | Colab only | A19, A21, A17 | Done 2026-09-18 on a real A100; see below |
+| [x] | A23 | Training recovery proof | Colab only | A22 | Done 2026-09-18: resume continued 5→20 with intact history; see below |
 | [ ] | A24 | First targeted fine-tuning | Colab only | A18, A20, A22, A23 | Planned (inherits A20's blocked dependency — see the note under A20) |
 | [ ] | A25 | Evaluating the adaptation and exporting the model | Colab | A24, A15 | Planned |
 | [ ] | A26 | Automated checks and team instructions | Locally / CI without training | A05, A06, A09, A13, A16, A21 | Planned |
@@ -253,7 +253,13 @@ Order: documentation → scaffolding and contracts → small local tests → Col
 
 **Independently implemented part, 2026-09-16:** `src/aether/protocol.py` — the v1 binary packet, exact header/payload lengths, counter ranges, PCM validation, and separate per-direction/per-session sequence numbers. 10 tests verify the wire layout, loss/duplication/offset handling, corruption, and the maximum packet size. The WebSocket server, ready/live states, the client, and the mock engine were not implemented; A14 remained open.
 
-**Closing note (this documentation revision):** the `server.py`, `client.py`, and `protocol.py` source files described above, their tests, the `serve`/`talk` CLI commands, and the `aiohttp`/`sounddevice` dependencies were removed from the codebase in this documentation pass. This was a deliberate decision to narrow the project's scope to the dialogue model/generator itself rather than a live serving product; the historical record above is kept for reference, but none of that code currently exists in the repository. **Status: Removed — out of scope.**
+**Closing note (superseded, kept for history):** the `server.py`, `client.py`, and `protocol.py` source files described above, their tests, the `serve`/`talk` CLI commands, and the `aiohttp`/`sounddevice` dependencies were removed from the codebase in an earlier documentation pass, narrowing scope to the model/generator alone.
+
+**Reopened 2026-09-18:** a real baseline (A19) confirmed intelligible generated speech, which made a live-serving component worth rebuilding. `protocol.py` and its 10 tests were restored unchanged from git history. `server.py` (bounded protocol-v1 WebSocket service, single active session, `MAX_CONTROL_BYTES` sized so an oversized control message yields the application's own `PROTOCOL_ERROR` reply instead of a raw transport close) and `client.py` (microphone/speaker bridge with bounded cross-thread queues) were rewritten from the same design and are covered by 22 tests (`tests/unit/test_server.py`, `tests/unit/test_client.py`) exercising the round trip, strict `session.start` validation, `BUSY`, `PROTOCOL_ERROR`, `MODEL_ERROR`, `CONTEXT_LIMIT`, `AUDIO_TIMEOUT`, bearer-token auth, and slot release on disconnect. The `serve`/`talk` CLI commands and the `aiohttp`/`sounddevice` dependencies are back, with CLI-dispatch tests in `tests/integration/test_remote_cli.py`.
+
+Because a remote Colab VM has no public IP, `src/aether/tunnel.py` adds a `cloudflare_tunnel()` helper and an `aether tunnel --port <port>` CLI command that launches a Cloudflare **quick tunnel** (`cloudflared tunnel --url http://127.0.0.1:<port>`) and prints the resulting ephemeral `https://*.trycloudflare.com` hostname; the same hostname with `wss://` and `/v1/session` appended is the address a local `aether talk --url ...` client connects to. Quick tunnels need no account, no DNS, and no inbound firewall changes, but are unauthenticated and disposable — closing the tunnel process ends it. 7 tests cover URL parsing, a missing binary, a process that exits or stays silent, and killing a tunnel process that ignores `SIGTERM`.
+
+**Status: in progress, not yet run live.** All of the above is verified locally with a mock engine and a mocked `cloudflared`; nothing here has yet been run against the real model in Colab or through a real Cloudflare tunnel with a real microphone. That end-to-end proof is A20.
 
 ### A15 — Evaluation
 
@@ -324,6 +330,10 @@ Order: documentation → scaffolding and contracts → small local tests → Col
 
 **Done when:** speech is intelligible, measurements are reproducible, and the memory and duration limits are known. This is the reference point for all subsequent improvements.
 
+**Completed 2026-09-18:** a remote run on a real NVIDIA A100-SXM4-40GB (40960 MiB) loaded the pinned checkpoint (`kyutai/moshiko-pytorch-bf16`; model, codec, and tokenizer file hashes recorded) under strict weight loading, and produced a real streaming response to a held-out evaluation recording: "Hi, how are you doing? Oh, what a happy accident. Why don't you go check if she's still asleep?" The generated audio was reviewed by ear and judged intelligible and acceptable. The teacher-forced baseline audio cross-entropy is 5.4065 (perplexity ≈ 222.85) over 1724 tokens across the 4 held-out evaluation examples. `RUN_TRAINING` was `False`; no optimizer was constructed. Run artifacts (`run.json`, `before.json`, `dataset.json`, `baseline/inference.json`, `baseline/reply.wav`) are stored under `aether/runs/english-demo-20260918-134223/` on the configured Google Drive storage; they were reviewed and are not duplicated into this repository.
+
+**Remaining limitations:** this is a single run against one held-out speaker split with 4 evaluation utterances, not the full scenario suite from `validation.md` (A15 remains open for that). Audio quality was confirmed by informal listening, not a scored dialogue evaluation. Memory headroom for the next stage (adaptation, ≥38 GiB) is tight on a 40 GiB A100 and has not itself been verified under training load. The `source_revision` recorded in this run's `run.json` (`19ece9c...`) is stale relative to the code actually executed (`2ddd8e7...`, confirmed from the notebook's own printed checkout log), because the Git-checkout cell was re-run mid-session after a `git pull` without a full runtime restart. The human-confirmed result stands, but a fresh runtime restart after pulling a fix is recommended going forward so the saved manifest matches the code that actually ran.
+
 ### A20 — Live full-duplex
 
 **Actions:**
@@ -337,9 +347,11 @@ Order: documentation → scaffolding and contracts → small local tests → Col
 
 **Done when:** genuinely simultaneous listening and speaking is confirmed. Two-channel offline replay does not substitute for live acceptance. If the environment does not allow the necessary channel, the task remains open; Colab is not turned into a promised, persistent production server.
 
-**Status update (this documentation revision): on hold / blocked.** This task depends on A14, whose live server, Python client, and wire protocol have been deleted from the codebase (see A14). There is currently no live-serving component to test full-duplex behavior against. This task is blocked pending a future decision to reintroduce a live serving component; it is not being actively worked and cannot proceed as originally scoped until that decision is made.
+**Status update (superseded, kept for history): on hold / blocked.** This task depended on A14, whose live server, Python client, and wire protocol had been deleted from the codebase.
 
-**Downstream note:** A24 and A27 both list A20 as a dependency. That dependency chain is now stalled for the same reason: neither task can be considered unblocked until A20's blocker (A14) is resolved. Their entries in Section 3 and below are left unchanged to avoid silently rewriting the recorded dependency graph, but a future reader should treat A24 and A27 as inheriting A20's blocked status until this note is updated.
+**Reopened 2026-09-18:** the chosen channel is a Cloudflare quick tunnel (`aether tunnel --port <port>`) in front of the restored `aether serve` WebSocket backend, satisfying Action 1's "secure channel to the client" option without a browser adapter. `sounddevice` is used only by the local `aether talk` client on the operator's machine, never inside Colab (Action 2). All of this is implemented and unit-tested (see A14), but not yet exercised against the real model: the remaining work is to run `aether serve` in the same Colab process/session that already holds the loaded weights, expose it with `aether tunnel`, and connect from a local `aether talk --url wss://<tunnel-host>/v1/session`. Headphones first, echo cancellation later, per Action 4.
+
+**Downstream note:** A24 and A27 both list A20 as a dependency; that dependency is no longer blocked on A14; it now depends on actually completing the live run described above.
 
 ### A21 — Training code
 
@@ -354,6 +366,8 @@ Order: documentation → scaffolding and contracts → small local tests → Col
 
 **Done when:** the contracts and validation-only pass locally, while an actual training run awaits A22 in Colab. The code is ready to be tried, but is not yet marked as verified training.
 
+**Completed 2026-09-18:** the trainer ran for real on an NVIDIA A100-SXM4-40GB. A rank-8 LoRA adapter (`last_temporal_gated_out_lora_v1`, 122,880 trainable parameters on `transformer.layers.31.gating.linear_out.{down,up}.weight`) trained for 20 optimizer steps with gradient clipping (norm 1.0), learning rate 1e-4, batch=1, 64 frames. Gradient norms stayed in a sane 0.87–7.1 range across all 20 steps (no divergence, no NaN/Inf). Peak CUDA memory stayed at ~15.9 GiB throughout — well under the 38 GiB admission floor, confirming that floor is a conservative admission gate, not the actual training footprint for an adapter this size. See A22/A23 for the pilot/resume run this evidence comes from.
+
 ### A22 — Short pilot
 
 **Actions:**
@@ -367,6 +381,8 @@ Order: documentation → scaffolding and contracts → small local tests → Col
 
 **Done when:** the training loop actually works and fits on the allocated GPU. The pilot is not considered proof of usefulness on new data.
 
+**Completed 2026-09-18:** run `english-demo-20260918-141108` on a real A100. The pilot stopped at step 5 exactly as configured (`completed: false`), saving a checkpoint under `.../checkpoints/step-000005/` with a `COMPLETE` marker. Each of the 20 total steps also logged tokens, gradient norm, elapsed time, and peak CUDA bytes; step time was well under a second per step after the first (warm-up) step, comfortably inside the 1800-second budget. This is a pilot on generic read-speech data, not yet a fine-tuning run targeted at a specific weakness (that is A24) — it exists to prove the training loop itself works and fits.
+
 ### A23 — Recovery after disconnection
 
 **Actions:**
@@ -379,6 +395,8 @@ Order: documentation → scaffolding and contracts → small local tests → Col
 **What it looks like:** a `resume-check` report with the recovered step number, hashes, and the comparison result.
 
 **Done when:** recovery does not restart training from scratch, does not lose optimizer state, and does not use an unconfirmed copy. Both training runs are performed only in Colab.
+
+**Completed 2026-09-18:** in run `english-demo-20260918-141108`, a second process loaded the step-5 checkpoint (`state.pt`, verified via its `COMPLETE` marker and provenance check in `apply_checkpoint`/`validate_resume`) and continued to step 20; the saved history contains all 20 steps (1–20) with a continuous, non-restarted step count and gradient-norm trajectory, confirming optimizer and step-position state survived the restart rather than being reconstructed or skipped. `run.json`'s `source_revision` matched the code actually executed this time (no restart-vs-manifest mismatch, unlike the earlier baseline run). Teacher-forced re-evaluation after resume (`after.json`) shows audio CE 4.9996 / perplexity 148.35, down from the pre-training baseline's 5.4065 / 222.85 — a real, reproducible improvement, though on generic read-speech adaptation, not a scored dialogue benchmark. Checkpoints for all four save points (steps 5/10/15/20) are kept on the configured Drive storage under `aether/runs/english-demo-20260918-141108/checkpoints/`, each with its own `COMPLETE` marker, `checkpoint.json`, `metadata.json`, and `state.pt`. `aether serve --checkpoint <path>` now accepts one of these checkpoints directly, applying it via the same `apply_checkpoint` used here, for a live session against the adapted model.
 
 ### A24 — First targeted fine-tuning
 
@@ -488,4 +506,4 @@ The following sequence has been implemented: Git fetch/detached checkout → uv/
 
 **Checks:** 184 tests (`uv run --locked pytest`), Ruff check/format, and mypy; CLI dispatch, schemas, model mocks, masks, SHA256/identity, resume, notebook compilation, and a Git checkout against a small repository. Local checks exclude optimizer steps, full weights, and a GPU forward pass.
 
-**Open:** A07/A10–A13 require the full model; A16/A17 require remote execution; A19/A22/A23 require real baseline/pilot/resume reports. A14 (live server/client) has since been removed from scope (see A14), the full A15 conversational scenarios remain open, and the A18 dialogue data remain open. This does not block the prepared offline notebook with limited adaptation, but it does not substitute for project acceptance. Readiness for a manual run means the code is ready, not that training has already succeeded. Instructions: [colab.md](colab.md). The agent did not launch any paid resources.
+**Open:** A07/A10–A13 require the full model; A16/A17 require remote execution. A19/A21/A22/A23 now have real reports (see above). A14 (live server/client) has been reopened and rebuilt with a Cloudflare tunnel bridge but not yet run live (see A14/A20); A24 (a fine-tuning run deliberately targeted at one identified baseline weakness, as opposed to A22's generic read-speech pilot) remains open, along with the full A15 conversational scenarios and the A18 dialogue data. This does not block the prepared offline notebook with limited adaptation, but it does not substitute for project acceptance. Readiness for a manual run means the code is ready, not that training has already succeeded. Instructions: [colab.md](colab.md). The agent did not launch any paid resources.

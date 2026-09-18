@@ -7,10 +7,14 @@ name = "aether"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "aiohttp" },
     { name = "pydantic" },
 ]
 
 [package.dev-dependencies]
+audio = [
+    { name = "sounddevice" },
+]
 dev = [
     { name = "mypy" },
     { name = "pytest" },
@@ -34,9 +38,13 @@ train = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pydantic", specifier = ">=2.10,<3" }]
+requires-dist = [
+    { name = "aiohttp", specifier = ">=3.11,<4" },
+    { name = "pydantic", specifier = ">=2.10,<3" },
+]
 
 [package.metadata.requires-dev]
+audio = [{ name = "sounddevice", specifier = ">=0.5,<1" }]
 dev = [
     { name = "mypy", specifier = ">=1.15,<2" },
     { name = "pytest", specifier = ">=8.3,<10" },

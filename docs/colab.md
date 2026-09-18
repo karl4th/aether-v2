@@ -95,6 +95,42 @@ The 500-unit budget is controlled by the user in the UI; the package
 limits steps/time but does not track Colab unit consumption. Once
 finished, the GPU runtime is disconnected.
 
-Full conversational evaluation remains open; live serving is out of scope
-for the current model-research phase. The notebook provides an offline
-audio demo with playback, not live full-duplex.
+Full conversational evaluation remains open. The notebook itself provides
+an offline audio demo with playback, not live full-duplex; a separate live
+session (below) covers that path.
+
+## Live session (optional, after a successful baseline)
+
+A remote Colab VM has no public IP, so reaching its GPU-resident model over
+a live WebSocket connection needs a tunnel. `aether tunnel` wraps a
+Cloudflare quick tunnel, which needs no account, no DNS record, and no
+inbound firewall change; it is unauthenticated and disposable, so it is
+suitable for a short interactive test, not a persistent endpoint.
+
+In the same Colab session that already has the environment set up (so the
+same pinned weights are reused rather than downloaded twice):
+
+```bash
+# One-time per runtime: install the cloudflared binary.
+!wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -O /usr/local/bin/cloudflared
+!chmod +x /usr/local/bin/cloudflared
+
+# Start the live backend in the background, bound to localhost only.
+!uv run --locked --group model aether serve --permit runtime-permit.json --port 8080 &
+
+# Expose it and print the public wss:// endpoint.
+!uv run --locked aether tunnel --port 8080
+```
+
+`aether tunnel` prints `TUNNEL_READY: https://<random>.trycloudflare.com`
+and the matching `wss://.../v1/session` endpoint. From a local machine with
+a microphone and speakers (not from inside Colab):
+
+```bash
+uv run --locked --group audio aether talk --url wss://<random>.trycloudflare.com/v1/session
+```
+
+Test in headphones before speakers, since echo cancellation has not been
+implemented. Closing either the `aether serve` process or the tunnel ends
+the session; the hostname stops resolving as soon as the tunnel process
+exits.
