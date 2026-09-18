@@ -20,8 +20,16 @@ packages = ["src/aether"]
 [dependency-groups]
 dev = ["mypy>=1.15,<2", "pytest>=8.3,<10", "ruff>=0.11,<1"]
 audio = ["sounddevice>=0.5,<1", "soundfile>=0.13,<1"]
-# Training dependencies are selected after the Colab hardware preflight.
-train = []
+# Model dependencies are installed only in the remote Colab environment.
+train = [{include-group = "model"}]
+model = [
+    "moshi",
+    "safetensors>=0.5,<1",
+    "sentencepiece>=0.2,<1",
+    "soundfile>=0.13,<1",
+    "torch==2.8.0",
+    "torchaudio==2.8.0",
+]
 
 [tool.ruff]
 target-version = "py312"
@@ -38,3 +46,6 @@ files = ["src/aether"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+
+[tool.uv.sources]
+moshi = { git = "https://github.com/kyutai-labs/moshi.git", subdirectory = "moshi", rev = "e6a55d2722a65870ef52a6c9f6ecfc0e90f38362" }

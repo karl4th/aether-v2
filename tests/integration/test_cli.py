@@ -38,13 +38,13 @@ def test_help_does_not_require_model_dependencies() -> None:
     assert "inspect" in result.stdout
 
 
-def test_unimplemented_inference_does_not_write_output(tmp_path: Path) -> None:
+def test_local_inference_refuses_before_backend_or_output(tmp_path: Path) -> None:
     output = tmp_path / "answer.wav"
     result = run_cli(
         "infer", "--config", "absent.json", "--input", "absent.wav", "--output", str(output)
     )
-    assert result.returncode == 3
-    assert "NOT_IMPLEMENTED" in result.stderr
+    assert result.returncode == 4
+    assert "REMOTE_RUNTIME_REQUIRED" in result.stderr
     assert not output.exists()
 
 
@@ -64,8 +64,11 @@ def test_missing_arguments_fail() -> None:
     assert result.returncode == 2
 
 
-def test_validation_is_backend_free_and_read_only(tmp_path: Path) -> None:
-    config = Path("configs/model/tiny.json").resolve()
+@pytest.mark.parametrize(
+    "config_path", ["configs/model/tiny.json", "configs/training/colab_lora.json"]
+)
+def test_validation_is_backend_free_and_read_only(tmp_path: Path, config_path: str) -> None:
+    config = Path(config_path).resolve()
     code = """
 import sys
 from pathlib import Path
