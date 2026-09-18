@@ -24,15 +24,15 @@ def read_json(path: str) -> str:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="aether",
-        description="aether — потоковый голосовой диалог.",
-        epilog="Локально: разработка и тесты. Модель и обучение: удалённый Google Colab.",
+        description="aether — streaming dialogue model research.",
+        epilog="Local: development and tests. Model and training: remote Google Colab.",
     )
     parser.add_argument("--version", action="version", version=f"aether {__version__}")
     commands = parser.add_subparsers(dest="command", required=True)
-    inspect = commands.add_parser("inspect", help="Проверить синтетический bundle.")
+    inspect = commands.add_parser("inspect", help="Validate a synthetic bundle.")
     inspect.add_argument("--config", required=True)
     inspect.add_argument("--manifest", required=True)
-    data = commands.add_parser("prepare-data", help="Подготовить английский корпус в Colab.")
+    data = commands.add_parser("prepare-data", help="Prepare the English corpus in Colab.")
     data.add_argument("--output", required=True)
     data.add_argument("--permit", required=True)
     data.add_argument("--max-train", type=int, default=16)
@@ -52,9 +52,6 @@ def build_parser() -> argparse.ArgumentParser:
             command.add_argument("--validate-only", action="store_true")
             command.add_argument("--resume")
             command.add_argument("--stop-after-steps", type=int)
-    for name in ("serve", "talk"):
-        command = commands.add_parser(name, help="Живой клиент/сервер пока не реализован.")
-        command.add_argument("--url" if name == "talk" else "--config", required=True)
     return parser
 
 
@@ -65,7 +62,7 @@ def _remote_operation(args: argparse.Namespace) -> dict[str, Any]:
             if args.command == "train"
             else "REMOTE_RUNTIME_REQUIRED"
         )
-        raise RemoteRuntimeError(f"{code}: требуется notebook permit; local runtime запрещён")
+        raise RemoteRuntimeError(f"{code}: notebook permit is required; local runtime is forbidden")
     require_remote_runtime(training=args.command == "train", permit_path=args.permit)
     if args.command == "prepare-data":
         from aether.dataset import prepare_dataset
@@ -128,9 +125,6 @@ def _remote_operation(args: argparse.Namespace) -> dict[str, Any]:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    if args.command in {"serve", "talk"}:
-        print(f"NOT_IMPLEMENTED: {args.command}", file=sys.stderr)
-        return 3
     try:
         if args.command == "inspect":
             from aether.artifacts import inspect_bundle
@@ -147,7 +141,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 TrainingConfig.model_validate_json(raw)
             else:
                 load_config(args.config)
-            print("VALID_CONFIG: схема проверена без backend; runtime не проверен")
+            print("VALID_CONFIG: schema verified without backend; runtime not checked")
             return 0
         result = _remote_operation(args)
         if args.command == "evaluate" and args.output:

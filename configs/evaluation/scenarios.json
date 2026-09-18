@@ -1,0 +1,2252 @@
+{
+  "schema_version": 1,
+  "suite_version": "english-dialogue-v1",
+  "language": "en",
+  "seeds": [
+    11,
+    29,
+    47
+  ],
+  "scenarios": [
+    {
+      "id": "question-01",
+      "category": "question",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "What is twelve plus seven?"
+        }
+      ],
+      "expected": [
+        "Answer nineteen.",
+        "Complete a relevant spoken response."
+      ]
+    },
+    {
+      "id": "pause-01",
+      "category": "pause",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "I need help choosing a train ticket, but first"
+        },
+        {
+          "at_seconds": 2.0,
+          "kind": "pause",
+          "instruction": "Remain silent for 1.5 seconds inside this unfinished sentence."
+        },
+        {
+          "at_seconds": 3.5,
+          "kind": "user",
+          "instruction": "please ask me about my budget before making a suggestion."
+        }
+      ],
+      "expected": [
+        "Wait for completion of the question.",
+        "Ask about the budget before suggesting an option."
+      ]
+    },
+    {
+      "id": "correction-01",
+      "category": "correction",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Plan a train ticket for 2 people."
+        },
+        {
+          "at_seconds": 2.0,
+          "kind": "user",
+          "instruction": "Actually, I meant 12 people. Repeat the corrected number."
+        }
+      ],
+      "expected": [
+        "Use 12, not the original number."
+      ]
+    },
+    {
+      "id": "interruption-01",
+      "category": "interruption",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Give me a detailed explanation of how to arrange a train ticket."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "interrupt",
+          "instruction": "Stop. Just tell me whether 3 is greater than 1."
+        }
+      ],
+      "expected": [
+        "Yield the audible turn after the interruption.",
+        "Answer yes to the replacement question."
+      ]
+    },
+    {
+      "id": "backchannel-01",
+      "category": "backchannel",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Explain three considerations for a train ticket."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "backchannel",
+          "instruction": "Say mm-hmm briefly while the assistant speaks."
+        }
+      ],
+      "expected": [
+        "Do not treat acknowledgement as a mandatory stop.",
+        "Complete the requested explanation."
+      ]
+    },
+    {
+      "id": "overlap-01",
+      "category": "overlap",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Tell me about a train ticket."
+        },
+        {
+          "at_seconds": 4.0,
+          "kind": "overlap",
+          "instruction": "A second input speaker says: focus on accessibility for 1 visitors."
+        }
+      ],
+      "expected": [
+        "Preserve the overlapping input without transport failure.",
+        "Inspect whether accessibility constraint is acknowledged; record ambiguity."
+      ]
+    },
+    {
+      "id": "silence-01",
+      "category": "silence",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Say the number 1 once, then wait silently."
+        },
+        {
+          "at_seconds": 3.0,
+          "kind": "silence",
+          "instruction": "Provide no speech for the rest of the scenario."
+        }
+      ],
+      "expected": [
+        "Say 1 once.",
+        "Avoid repeated or unprompted monologue during silence."
+      ]
+    },
+    {
+      "id": "noise-01",
+      "category": "noise",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "noise",
+          "instruction": "Use independently recorded room noise at 2 dB SNR; retain clean reference."
+        },
+        {
+          "at_seconds": 1.0,
+          "kind": "user",
+          "instruction": "What is twelve plus seven?"
+        }
+      ],
+      "expected": [
+        "Answer nineteen.",
+        "Record intelligibility and degradation against the paired clean trial.",
+        "No crash or runaway generation."
+      ]
+    },
+    {
+      "id": "context-01",
+      "category": "context",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "My reference number is 101. Remember it."
+        },
+        {
+          "at_seconds": 3.0,
+          "kind": "user",
+          "instruction": "What should I consider when arranging a train ticket?"
+        },
+        {
+          "at_seconds": 13.0,
+          "kind": "user",
+          "instruction": "What reference number did I give you?"
+        }
+      ],
+      "expected": [
+        "Recall 101 within the declared context budget."
+      ]
+    },
+    {
+      "id": "reconnect-01",
+      "category": "reconnect",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Remember the secret word violet1."
+        },
+        {
+          "at_seconds": 4.0,
+          "kind": "disconnect",
+          "instruction": "Close transport and discard session state."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "reconnect",
+          "instruction": "Open a new session."
+        },
+        {
+          "at_seconds": 6.0,
+          "kind": "user",
+          "instruction": "What secret word did I tell you in this conversation?"
+        }
+      ],
+      "expected": [
+        "New session must not retain the previous secret.",
+        "Reconnect without stale audio or sequence state."
+      ]
+    },
+    {
+      "id": "question-02",
+      "category": "question",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Which planet is known as the red planet?"
+        }
+      ],
+      "expected": [
+        "Answer Mars.",
+        "Complete a relevant spoken response."
+      ]
+    },
+    {
+      "id": "pause-02",
+      "category": "pause",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "I need help choosing a restaurant table, but first"
+        },
+        {
+          "at_seconds": 2.0,
+          "kind": "pause",
+          "instruction": "Remain silent for 1.5 seconds inside this unfinished sentence."
+        },
+        {
+          "at_seconds": 3.5,
+          "kind": "user",
+          "instruction": "please ask me about my budget before making a suggestion."
+        }
+      ],
+      "expected": [
+        "Wait for completion of the question.",
+        "Ask about the budget before suggesting an option."
+      ]
+    },
+    {
+      "id": "correction-02",
+      "category": "correction",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Plan a restaurant table for 3 people."
+        },
+        {
+          "at_seconds": 2.0,
+          "kind": "user",
+          "instruction": "Actually, I meant 13 people. Repeat the corrected number."
+        }
+      ],
+      "expected": [
+        "Use 13, not the original number."
+      ]
+    },
+    {
+      "id": "interruption-02",
+      "category": "interruption",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Give me a detailed explanation of how to arrange a restaurant table."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "interrupt",
+          "instruction": "Stop. Just tell me whether 4 is greater than 2."
+        }
+      ],
+      "expected": [
+        "Yield the audible turn after the interruption.",
+        "Answer yes to the replacement question."
+      ]
+    },
+    {
+      "id": "backchannel-02",
+      "category": "backchannel",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Explain three considerations for a restaurant table."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "backchannel",
+          "instruction": "Say mm-hmm briefly while the assistant speaks."
+        }
+      ],
+      "expected": [
+        "Do not treat acknowledgement as a mandatory stop.",
+        "Complete the requested explanation."
+      ]
+    },
+    {
+      "id": "overlap-02",
+      "category": "overlap",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Tell me about a restaurant table."
+        },
+        {
+          "at_seconds": 4.0,
+          "kind": "overlap",
+          "instruction": "A second input speaker says: focus on accessibility for 2 visitors."
+        }
+      ],
+      "expected": [
+        "Preserve the overlapping input without transport failure.",
+        "Inspect whether accessibility constraint is acknowledged; record ambiguity."
+      ]
+    },
+    {
+      "id": "silence-02",
+      "category": "silence",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Say the number 2 once, then wait silently."
+        },
+        {
+          "at_seconds": 3.0,
+          "kind": "silence",
+          "instruction": "Provide no speech for the rest of the scenario."
+        }
+      ],
+      "expected": [
+        "Say 2 once.",
+        "Avoid repeated or unprompted monologue during silence."
+      ]
+    },
+    {
+      "id": "noise-02",
+      "category": "noise",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "noise",
+          "instruction": "Use independently recorded room noise at 4 dB SNR; retain clean reference."
+        },
+        {
+          "at_seconds": 1.0,
+          "kind": "user",
+          "instruction": "Which planet is known as the red planet?"
+        }
+      ],
+      "expected": [
+        "Answer Mars.",
+        "Record intelligibility and degradation against the paired clean trial.",
+        "No crash or runaway generation."
+      ]
+    },
+    {
+      "id": "context-02",
+      "category": "context",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "My reference number is 102. Remember it."
+        },
+        {
+          "at_seconds": 3.0,
+          "kind": "user",
+          "instruction": "What should I consider when arranging a restaurant table?"
+        },
+        {
+          "at_seconds": 13.0,
+          "kind": "user",
+          "instruction": "What reference number did I give you?"
+        }
+      ],
+      "expected": [
+        "Recall 102 within the declared context budget."
+      ]
+    },
+    {
+      "id": "reconnect-02",
+      "category": "reconnect",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Remember the secret word violet2."
+        },
+        {
+          "at_seconds": 4.0,
+          "kind": "disconnect",
+          "instruction": "Close transport and discard session state."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "reconnect",
+          "instruction": "Open a new session."
+        },
+        {
+          "at_seconds": 6.0,
+          "kind": "user",
+          "instruction": "What secret word did I tell you in this conversation?"
+        }
+      ],
+      "expected": [
+        "New session must not retain the previous secret.",
+        "Reconnect without stale audio or sequence state."
+      ]
+    },
+    {
+      "id": "question-03",
+      "category": "question",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "How many minutes are in two hours?"
+        }
+      ],
+      "expected": [
+        "Answer 120.",
+        "Complete a relevant spoken response."
+      ]
+    },
+    {
+      "id": "pause-03",
+      "category": "pause",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "I need help choosing a library book, but first"
+        },
+        {
+          "at_seconds": 2.0,
+          "kind": "pause",
+          "instruction": "Remain silent for 1.5 seconds inside this unfinished sentence."
+        },
+        {
+          "at_seconds": 3.5,
+          "kind": "user",
+          "instruction": "please ask me about my budget before making a suggestion."
+        }
+      ],
+      "expected": [
+        "Wait for completion of the question.",
+        "Ask about the budget before suggesting an option."
+      ]
+    },
+    {
+      "id": "correction-03",
+      "category": "correction",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Plan a library book for 4 people."
+        },
+        {
+          "at_seconds": 2.0,
+          "kind": "user",
+          "instruction": "Actually, I meant 14 people. Repeat the corrected number."
+        }
+      ],
+      "expected": [
+        "Use 14, not the original number."
+      ]
+    },
+    {
+      "id": "interruption-03",
+      "category": "interruption",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Give me a detailed explanation of how to arrange a library book."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "interrupt",
+          "instruction": "Stop. Just tell me whether 5 is greater than 3."
+        }
+      ],
+      "expected": [
+        "Yield the audible turn after the interruption.",
+        "Answer yes to the replacement question."
+      ]
+    },
+    {
+      "id": "backchannel-03",
+      "category": "backchannel",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Explain three considerations for a library book."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "backchannel",
+          "instruction": "Say mm-hmm briefly while the assistant speaks."
+        }
+      ],
+      "expected": [
+        "Do not treat acknowledgement as a mandatory stop.",
+        "Complete the requested explanation."
+      ]
+    },
+    {
+      "id": "overlap-03",
+      "category": "overlap",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Tell me about a library book."
+        },
+        {
+          "at_seconds": 4.0,
+          "kind": "overlap",
+          "instruction": "A second input speaker says: focus on accessibility for 3 visitors."
+        }
+      ],
+      "expected": [
+        "Preserve the overlapping input without transport failure.",
+        "Inspect whether accessibility constraint is acknowledged; record ambiguity."
+      ]
+    },
+    {
+      "id": "silence-03",
+      "category": "silence",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Say the number 3 once, then wait silently."
+        },
+        {
+          "at_seconds": 3.0,
+          "kind": "silence",
+          "instruction": "Provide no speech for the rest of the scenario."
+        }
+      ],
+      "expected": [
+        "Say 3 once.",
+        "Avoid repeated or unprompted monologue during silence."
+      ]
+    },
+    {
+      "id": "noise-03",
+      "category": "noise",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "noise",
+          "instruction": "Use independently recorded room noise at 6 dB SNR; retain clean reference."
+        },
+        {
+          "at_seconds": 1.0,
+          "kind": "user",
+          "instruction": "How many minutes are in two hours?"
+        }
+      ],
+      "expected": [
+        "Answer 120.",
+        "Record intelligibility and degradation against the paired clean trial.",
+        "No crash or runaway generation."
+      ]
+    },
+    {
+      "id": "context-03",
+      "category": "context",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "My reference number is 103. Remember it."
+        },
+        {
+          "at_seconds": 3.0,
+          "kind": "user",
+          "instruction": "What should I consider when arranging a library book?"
+        },
+        {
+          "at_seconds": 13.0,
+          "kind": "user",
+          "instruction": "What reference number did I give you?"
+        }
+      ],
+      "expected": [
+        "Recall 103 within the declared context budget."
+      ]
+    },
+    {
+      "id": "reconnect-03",
+      "category": "reconnect",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Remember the secret word violet3."
+        },
+        {
+          "at_seconds": 4.0,
+          "kind": "disconnect",
+          "instruction": "Close transport and discard session state."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "reconnect",
+          "instruction": "Open a new session."
+        },
+        {
+          "at_seconds": 6.0,
+          "kind": "user",
+          "instruction": "What secret word did I tell you in this conversation?"
+        }
+      ],
+      "expected": [
+        "New session must not retain the previous secret.",
+        "Reconnect without stale audio or sequence state."
+      ]
+    },
+    {
+      "id": "question-04",
+      "category": "question",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Name the largest ocean."
+        }
+      ],
+      "expected": [
+        "Answer Pacific.",
+        "Complete a relevant spoken response."
+      ]
+    },
+    {
+      "id": "pause-04",
+      "category": "pause",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "I need help choosing a museum visit, but first"
+        },
+        {
+          "at_seconds": 2.0,
+          "kind": "pause",
+          "instruction": "Remain silent for 1.5 seconds inside this unfinished sentence."
+        },
+        {
+          "at_seconds": 3.5,
+          "kind": "user",
+          "instruction": "please ask me about my budget before making a suggestion."
+        }
+      ],
+      "expected": [
+        "Wait for completion of the question.",
+        "Ask about the budget before suggesting an option."
+      ]
+    },
+    {
+      "id": "correction-04",
+      "category": "correction",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Plan a museum visit for 5 people."
+        },
+        {
+          "at_seconds": 2.0,
+          "kind": "user",
+          "instruction": "Actually, I meant 15 people. Repeat the corrected number."
+        }
+      ],
+      "expected": [
+        "Use 15, not the original number."
+      ]
+    },
+    {
+      "id": "interruption-04",
+      "category": "interruption",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Give me a detailed explanation of how to arrange a museum visit."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "interrupt",
+          "instruction": "Stop. Just tell me whether 6 is greater than 4."
+        }
+      ],
+      "expected": [
+        "Yield the audible turn after the interruption.",
+        "Answer yes to the replacement question."
+      ]
+    },
+    {
+      "id": "backchannel-04",
+      "category": "backchannel",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Explain three considerations for a museum visit."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "backchannel",
+          "instruction": "Say mm-hmm briefly while the assistant speaks."
+        }
+      ],
+      "expected": [
+        "Do not treat acknowledgement as a mandatory stop.",
+        "Complete the requested explanation."
+      ]
+    },
+    {
+      "id": "overlap-04",
+      "category": "overlap",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Tell me about a museum visit."
+        },
+        {
+          "at_seconds": 4.0,
+          "kind": "overlap",
+          "instruction": "A second input speaker says: focus on accessibility for 4 visitors."
+        }
+      ],
+      "expected": [
+        "Preserve the overlapping input without transport failure.",
+        "Inspect whether accessibility constraint is acknowledged; record ambiguity."
+      ]
+    },
+    {
+      "id": "silence-04",
+      "category": "silence",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Say the number 4 once, then wait silently."
+        },
+        {
+          "at_seconds": 3.0,
+          "kind": "silence",
+          "instruction": "Provide no speech for the rest of the scenario."
+        }
+      ],
+      "expected": [
+        "Say 4 once.",
+        "Avoid repeated or unprompted monologue during silence."
+      ]
+    },
+    {
+      "id": "noise-04",
+      "category": "noise",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "noise",
+          "instruction": "Use independently recorded room noise at 8 dB SNR; retain clean reference."
+        },
+        {
+          "at_seconds": 1.0,
+          "kind": "user",
+          "instruction": "Name the largest ocean."
+        }
+      ],
+      "expected": [
+        "Answer Pacific.",
+        "Record intelligibility and degradation against the paired clean trial.",
+        "No crash or runaway generation."
+      ]
+    },
+    {
+      "id": "context-04",
+      "category": "context",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "My reference number is 104. Remember it."
+        },
+        {
+          "at_seconds": 3.0,
+          "kind": "user",
+          "instruction": "What should I consider when arranging a museum visit?"
+        },
+        {
+          "at_seconds": 13.0,
+          "kind": "user",
+          "instruction": "What reference number did I give you?"
+        }
+      ],
+      "expected": [
+        "Recall 104 within the declared context budget."
+      ]
+    },
+    {
+      "id": "reconnect-04",
+      "category": "reconnect",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Remember the secret word violet4."
+        },
+        {
+          "at_seconds": 4.0,
+          "kind": "disconnect",
+          "instruction": "Close transport and discard session state."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "reconnect",
+          "instruction": "Open a new session."
+        },
+        {
+          "at_seconds": 6.0,
+          "kind": "user",
+          "instruction": "What secret word did I tell you in this conversation?"
+        }
+      ],
+      "expected": [
+        "New session must not retain the previous secret.",
+        "Reconnect without stale audio or sequence state."
+      ]
+    },
+    {
+      "id": "question-05",
+      "category": "question",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "What is the opposite of north?"
+        }
+      ],
+      "expected": [
+        "Answer south.",
+        "Complete a relevant spoken response."
+      ]
+    },
+    {
+      "id": "pause-05",
+      "category": "pause",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "I need help choosing a birthday cake, but first"
+        },
+        {
+          "at_seconds": 2.0,
+          "kind": "pause",
+          "instruction": "Remain silent for 1.5 seconds inside this unfinished sentence."
+        },
+        {
+          "at_seconds": 3.5,
+          "kind": "user",
+          "instruction": "please ask me about my budget before making a suggestion."
+        }
+      ],
+      "expected": [
+        "Wait for completion of the question.",
+        "Ask about the budget before suggesting an option."
+      ]
+    },
+    {
+      "id": "correction-05",
+      "category": "correction",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Plan a birthday cake for 6 people."
+        },
+        {
+          "at_seconds": 2.0,
+          "kind": "user",
+          "instruction": "Actually, I meant 16 people. Repeat the corrected number."
+        }
+      ],
+      "expected": [
+        "Use 16, not the original number."
+      ]
+    },
+    {
+      "id": "interruption-05",
+      "category": "interruption",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Give me a detailed explanation of how to arrange a birthday cake."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "interrupt",
+          "instruction": "Stop. Just tell me whether 7 is greater than 5."
+        }
+      ],
+      "expected": [
+        "Yield the audible turn after the interruption.",
+        "Answer yes to the replacement question."
+      ]
+    },
+    {
+      "id": "backchannel-05",
+      "category": "backchannel",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Explain three considerations for a birthday cake."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "backchannel",
+          "instruction": "Say mm-hmm briefly while the assistant speaks."
+        }
+      ],
+      "expected": [
+        "Do not treat acknowledgement as a mandatory stop.",
+        "Complete the requested explanation."
+      ]
+    },
+    {
+      "id": "overlap-05",
+      "category": "overlap",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Tell me about a birthday cake."
+        },
+        {
+          "at_seconds": 4.0,
+          "kind": "overlap",
+          "instruction": "A second input speaker says: focus on accessibility for 5 visitors."
+        }
+      ],
+      "expected": [
+        "Preserve the overlapping input without transport failure.",
+        "Inspect whether accessibility constraint is acknowledged; record ambiguity."
+      ]
+    },
+    {
+      "id": "silence-05",
+      "category": "silence",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Say the number 5 once, then wait silently."
+        },
+        {
+          "at_seconds": 3.0,
+          "kind": "silence",
+          "instruction": "Provide no speech for the rest of the scenario."
+        }
+      ],
+      "expected": [
+        "Say 5 once.",
+        "Avoid repeated or unprompted monologue during silence."
+      ]
+    },
+    {
+      "id": "noise-05",
+      "category": "noise",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "noise",
+          "instruction": "Use independently recorded room noise at 10 dB SNR; retain clean reference."
+        },
+        {
+          "at_seconds": 1.0,
+          "kind": "user",
+          "instruction": "What is the opposite of north?"
+        }
+      ],
+      "expected": [
+        "Answer south.",
+        "Record intelligibility and degradation against the paired clean trial.",
+        "No crash or runaway generation."
+      ]
+    },
+    {
+      "id": "context-05",
+      "category": "context",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "My reference number is 105. Remember it."
+        },
+        {
+          "at_seconds": 3.0,
+          "kind": "user",
+          "instruction": "What should I consider when arranging a birthday cake?"
+        },
+        {
+          "at_seconds": 13.0,
+          "kind": "user",
+          "instruction": "What reference number did I give you?"
+        }
+      ],
+      "expected": [
+        "Recall 105 within the declared context budget."
+      ]
+    },
+    {
+      "id": "reconnect-05",
+      "category": "reconnect",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Remember the secret word violet5."
+        },
+        {
+          "at_seconds": 4.0,
+          "kind": "disconnect",
+          "instruction": "Close transport and discard session state."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "reconnect",
+          "instruction": "Open a new session."
+        },
+        {
+          "at_seconds": 6.0,
+          "kind": "user",
+          "instruction": "What secret word did I tell you in this conversation?"
+        }
+      ],
+      "expected": [
+        "New session must not retain the previous secret.",
+        "Reconnect without stale audio or sequence state."
+      ]
+    },
+    {
+      "id": "question-06",
+      "category": "question",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "How many sides does a triangle have?"
+        }
+      ],
+      "expected": [
+        "Answer three.",
+        "Complete a relevant spoken response."
+      ]
+    },
+    {
+      "id": "pause-06",
+      "category": "pause",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "I need help choosing a walking route, but first"
+        },
+        {
+          "at_seconds": 2.0,
+          "kind": "pause",
+          "instruction": "Remain silent for 1.5 seconds inside this unfinished sentence."
+        },
+        {
+          "at_seconds": 3.5,
+          "kind": "user",
+          "instruction": "please ask me about my budget before making a suggestion."
+        }
+      ],
+      "expected": [
+        "Wait for completion of the question.",
+        "Ask about the budget before suggesting an option."
+      ]
+    },
+    {
+      "id": "correction-06",
+      "category": "correction",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Plan a walking route for 7 people."
+        },
+        {
+          "at_seconds": 2.0,
+          "kind": "user",
+          "instruction": "Actually, I meant 17 people. Repeat the corrected number."
+        }
+      ],
+      "expected": [
+        "Use 17, not the original number."
+      ]
+    },
+    {
+      "id": "interruption-06",
+      "category": "interruption",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Give me a detailed explanation of how to arrange a walking route."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "interrupt",
+          "instruction": "Stop. Just tell me whether 8 is greater than 6."
+        }
+      ],
+      "expected": [
+        "Yield the audible turn after the interruption.",
+        "Answer yes to the replacement question."
+      ]
+    },
+    {
+      "id": "backchannel-06",
+      "category": "backchannel",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Explain three considerations for a walking route."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "backchannel",
+          "instruction": "Say mm-hmm briefly while the assistant speaks."
+        }
+      ],
+      "expected": [
+        "Do not treat acknowledgement as a mandatory stop.",
+        "Complete the requested explanation."
+      ]
+    },
+    {
+      "id": "overlap-06",
+      "category": "overlap",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Tell me about a walking route."
+        },
+        {
+          "at_seconds": 4.0,
+          "kind": "overlap",
+          "instruction": "A second input speaker says: focus on accessibility for 6 visitors."
+        }
+      ],
+      "expected": [
+        "Preserve the overlapping input without transport failure.",
+        "Inspect whether accessibility constraint is acknowledged; record ambiguity."
+      ]
+    },
+    {
+      "id": "silence-06",
+      "category": "silence",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Say the number 6 once, then wait silently."
+        },
+        {
+          "at_seconds": 3.0,
+          "kind": "silence",
+          "instruction": "Provide no speech for the rest of the scenario."
+        }
+      ],
+      "expected": [
+        "Say 6 once.",
+        "Avoid repeated or unprompted monologue during silence."
+      ]
+    },
+    {
+      "id": "noise-06",
+      "category": "noise",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "noise",
+          "instruction": "Use independently recorded room noise at 12 dB SNR; retain clean reference."
+        },
+        {
+          "at_seconds": 1.0,
+          "kind": "user",
+          "instruction": "How many sides does a triangle have?"
+        }
+      ],
+      "expected": [
+        "Answer three.",
+        "Record intelligibility and degradation against the paired clean trial.",
+        "No crash or runaway generation."
+      ]
+    },
+    {
+      "id": "context-06",
+      "category": "context",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "My reference number is 106. Remember it."
+        },
+        {
+          "at_seconds": 3.0,
+          "kind": "user",
+          "instruction": "What should I consider when arranging a walking route?"
+        },
+        {
+          "at_seconds": 13.0,
+          "kind": "user",
+          "instruction": "What reference number did I give you?"
+        }
+      ],
+      "expected": [
+        "Recall 106 within the declared context budget."
+      ]
+    },
+    {
+      "id": "reconnect-06",
+      "category": "reconnect",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Remember the secret word violet6."
+        },
+        {
+          "at_seconds": 4.0,
+          "kind": "disconnect",
+          "instruction": "Close transport and discard session state."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "reconnect",
+          "instruction": "Open a new session."
+        },
+        {
+          "at_seconds": 6.0,
+          "kind": "user",
+          "instruction": "What secret word did I tell you in this conversation?"
+        }
+      ],
+      "expected": [
+        "New session must not retain the previous secret.",
+        "Reconnect without stale audio or sequence state."
+      ]
+    },
+    {
+      "id": "question-07",
+      "category": "question",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "What gas do plants take in for photosynthesis?"
+        }
+      ],
+      "expected": [
+        "Answer carbon dioxide.",
+        "Complete a relevant spoken response."
+      ]
+    },
+    {
+      "id": "pause-07",
+      "category": "pause",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "I need help choosing a hotel room, but first"
+        },
+        {
+          "at_seconds": 2.0,
+          "kind": "pause",
+          "instruction": "Remain silent for 1.5 seconds inside this unfinished sentence."
+        },
+        {
+          "at_seconds": 3.5,
+          "kind": "user",
+          "instruction": "please ask me about my budget before making a suggestion."
+        }
+      ],
+      "expected": [
+        "Wait for completion of the question.",
+        "Ask about the budget before suggesting an option."
+      ]
+    },
+    {
+      "id": "correction-07",
+      "category": "correction",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Plan a hotel room for 8 people."
+        },
+        {
+          "at_seconds": 2.0,
+          "kind": "user",
+          "instruction": "Actually, I meant 18 people. Repeat the corrected number."
+        }
+      ],
+      "expected": [
+        "Use 18, not the original number."
+      ]
+    },
+    {
+      "id": "interruption-07",
+      "category": "interruption",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Give me a detailed explanation of how to arrange a hotel room."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "interrupt",
+          "instruction": "Stop. Just tell me whether 9 is greater than 7."
+        }
+      ],
+      "expected": [
+        "Yield the audible turn after the interruption.",
+        "Answer yes to the replacement question."
+      ]
+    },
+    {
+      "id": "backchannel-07",
+      "category": "backchannel",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Explain three considerations for a hotel room."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "backchannel",
+          "instruction": "Say mm-hmm briefly while the assistant speaks."
+        }
+      ],
+      "expected": [
+        "Do not treat acknowledgement as a mandatory stop.",
+        "Complete the requested explanation."
+      ]
+    },
+    {
+      "id": "overlap-07",
+      "category": "overlap",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Tell me about a hotel room."
+        },
+        {
+          "at_seconds": 4.0,
+          "kind": "overlap",
+          "instruction": "A second input speaker says: focus on accessibility for 7 visitors."
+        }
+      ],
+      "expected": [
+        "Preserve the overlapping input without transport failure.",
+        "Inspect whether accessibility constraint is acknowledged; record ambiguity."
+      ]
+    },
+    {
+      "id": "silence-07",
+      "category": "silence",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Say the number 7 once, then wait silently."
+        },
+        {
+          "at_seconds": 3.0,
+          "kind": "silence",
+          "instruction": "Provide no speech for the rest of the scenario."
+        }
+      ],
+      "expected": [
+        "Say 7 once.",
+        "Avoid repeated or unprompted monologue during silence."
+      ]
+    },
+    {
+      "id": "noise-07",
+      "category": "noise",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "noise",
+          "instruction": "Use independently recorded room noise at 14 dB SNR; retain clean reference."
+        },
+        {
+          "at_seconds": 1.0,
+          "kind": "user",
+          "instruction": "What gas do plants take in for photosynthesis?"
+        }
+      ],
+      "expected": [
+        "Answer carbon dioxide.",
+        "Record intelligibility and degradation against the paired clean trial.",
+        "No crash or runaway generation."
+      ]
+    },
+    {
+      "id": "context-07",
+      "category": "context",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "My reference number is 107. Remember it."
+        },
+        {
+          "at_seconds": 3.0,
+          "kind": "user",
+          "instruction": "What should I consider when arranging a hotel room?"
+        },
+        {
+          "at_seconds": 13.0,
+          "kind": "user",
+          "instruction": "What reference number did I give you?"
+        }
+      ],
+      "expected": [
+        "Recall 107 within the declared context budget."
+      ]
+    },
+    {
+      "id": "reconnect-07",
+      "category": "reconnect",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Remember the secret word violet7."
+        },
+        {
+          "at_seconds": 4.0,
+          "kind": "disconnect",
+          "instruction": "Close transport and discard session state."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "reconnect",
+          "instruction": "Open a new session."
+        },
+        {
+          "at_seconds": 6.0,
+          "kind": "user",
+          "instruction": "What secret word did I tell you in this conversation?"
+        }
+      ],
+      "expected": [
+        "New session must not retain the previous secret.",
+        "Reconnect without stale audio or sequence state."
+      ]
+    },
+    {
+      "id": "question-08",
+      "category": "question",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "What is nine times six?"
+        }
+      ],
+      "expected": [
+        "Answer 54.",
+        "Complete a relevant spoken response."
+      ]
+    },
+    {
+      "id": "pause-08",
+      "category": "pause",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "I need help choosing a garden plant, but first"
+        },
+        {
+          "at_seconds": 2.0,
+          "kind": "pause",
+          "instruction": "Remain silent for 1.5 seconds inside this unfinished sentence."
+        },
+        {
+          "at_seconds": 3.5,
+          "kind": "user",
+          "instruction": "please ask me about my budget before making a suggestion."
+        }
+      ],
+      "expected": [
+        "Wait for completion of the question.",
+        "Ask about the budget before suggesting an option."
+      ]
+    },
+    {
+      "id": "correction-08",
+      "category": "correction",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Plan a garden plant for 9 people."
+        },
+        {
+          "at_seconds": 2.0,
+          "kind": "user",
+          "instruction": "Actually, I meant 19 people. Repeat the corrected number."
+        }
+      ],
+      "expected": [
+        "Use 19, not the original number."
+      ]
+    },
+    {
+      "id": "interruption-08",
+      "category": "interruption",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Give me a detailed explanation of how to arrange a garden plant."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "interrupt",
+          "instruction": "Stop. Just tell me whether 10 is greater than 8."
+        }
+      ],
+      "expected": [
+        "Yield the audible turn after the interruption.",
+        "Answer yes to the replacement question."
+      ]
+    },
+    {
+      "id": "backchannel-08",
+      "category": "backchannel",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Explain three considerations for a garden plant."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "backchannel",
+          "instruction": "Say mm-hmm briefly while the assistant speaks."
+        }
+      ],
+      "expected": [
+        "Do not treat acknowledgement as a mandatory stop.",
+        "Complete the requested explanation."
+      ]
+    },
+    {
+      "id": "overlap-08",
+      "category": "overlap",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Tell me about a garden plant."
+        },
+        {
+          "at_seconds": 4.0,
+          "kind": "overlap",
+          "instruction": "A second input speaker says: focus on accessibility for 8 visitors."
+        }
+      ],
+      "expected": [
+        "Preserve the overlapping input without transport failure.",
+        "Inspect whether accessibility constraint is acknowledged; record ambiguity."
+      ]
+    },
+    {
+      "id": "silence-08",
+      "category": "silence",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Say the number 8 once, then wait silently."
+        },
+        {
+          "at_seconds": 3.0,
+          "kind": "silence",
+          "instruction": "Provide no speech for the rest of the scenario."
+        }
+      ],
+      "expected": [
+        "Say 8 once.",
+        "Avoid repeated or unprompted monologue during silence."
+      ]
+    },
+    {
+      "id": "noise-08",
+      "category": "noise",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "noise",
+          "instruction": "Use independently recorded room noise at 16 dB SNR; retain clean reference."
+        },
+        {
+          "at_seconds": 1.0,
+          "kind": "user",
+          "instruction": "What is nine times six?"
+        }
+      ],
+      "expected": [
+        "Answer 54.",
+        "Record intelligibility and degradation against the paired clean trial.",
+        "No crash or runaway generation."
+      ]
+    },
+    {
+      "id": "context-08",
+      "category": "context",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "My reference number is 108. Remember it."
+        },
+        {
+          "at_seconds": 3.0,
+          "kind": "user",
+          "instruction": "What should I consider when arranging a garden plant?"
+        },
+        {
+          "at_seconds": 13.0,
+          "kind": "user",
+          "instruction": "What reference number did I give you?"
+        }
+      ],
+      "expected": [
+        "Recall 108 within the declared context budget."
+      ]
+    },
+    {
+      "id": "reconnect-08",
+      "category": "reconnect",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Remember the secret word violet8."
+        },
+        {
+          "at_seconds": 4.0,
+          "kind": "disconnect",
+          "instruction": "Close transport and discard session state."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "reconnect",
+          "instruction": "Open a new session."
+        },
+        {
+          "at_seconds": 6.0,
+          "kind": "user",
+          "instruction": "What secret word did I tell you in this conversation?"
+        }
+      ],
+      "expected": [
+        "New session must not retain the previous secret.",
+        "Reconnect without stale audio or sequence state."
+      ]
+    },
+    {
+      "id": "question-09",
+      "category": "question",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Which month comes after September?"
+        }
+      ],
+      "expected": [
+        "Answer October.",
+        "Complete a relevant spoken response."
+      ]
+    },
+    {
+      "id": "pause-09",
+      "category": "pause",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "I need help choosing a concert ticket, but first"
+        },
+        {
+          "at_seconds": 2.0,
+          "kind": "pause",
+          "instruction": "Remain silent for 1.5 seconds inside this unfinished sentence."
+        },
+        {
+          "at_seconds": 3.5,
+          "kind": "user",
+          "instruction": "please ask me about my budget before making a suggestion."
+        }
+      ],
+      "expected": [
+        "Wait for completion of the question.",
+        "Ask about the budget before suggesting an option."
+      ]
+    },
+    {
+      "id": "correction-09",
+      "category": "correction",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Plan a concert ticket for 10 people."
+        },
+        {
+          "at_seconds": 2.0,
+          "kind": "user",
+          "instruction": "Actually, I meant 20 people. Repeat the corrected number."
+        }
+      ],
+      "expected": [
+        "Use 20, not the original number."
+      ]
+    },
+    {
+      "id": "interruption-09",
+      "category": "interruption",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Give me a detailed explanation of how to arrange a concert ticket."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "interrupt",
+          "instruction": "Stop. Just tell me whether 11 is greater than 9."
+        }
+      ],
+      "expected": [
+        "Yield the audible turn after the interruption.",
+        "Answer yes to the replacement question."
+      ]
+    },
+    {
+      "id": "backchannel-09",
+      "category": "backchannel",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Explain three considerations for a concert ticket."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "backchannel",
+          "instruction": "Say mm-hmm briefly while the assistant speaks."
+        }
+      ],
+      "expected": [
+        "Do not treat acknowledgement as a mandatory stop.",
+        "Complete the requested explanation."
+      ]
+    },
+    {
+      "id": "overlap-09",
+      "category": "overlap",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Tell me about a concert ticket."
+        },
+        {
+          "at_seconds": 4.0,
+          "kind": "overlap",
+          "instruction": "A second input speaker says: focus on accessibility for 9 visitors."
+        }
+      ],
+      "expected": [
+        "Preserve the overlapping input without transport failure.",
+        "Inspect whether accessibility constraint is acknowledged; record ambiguity."
+      ]
+    },
+    {
+      "id": "silence-09",
+      "category": "silence",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Say the number 9 once, then wait silently."
+        },
+        {
+          "at_seconds": 3.0,
+          "kind": "silence",
+          "instruction": "Provide no speech for the rest of the scenario."
+        }
+      ],
+      "expected": [
+        "Say 9 once.",
+        "Avoid repeated or unprompted monologue during silence."
+      ]
+    },
+    {
+      "id": "noise-09",
+      "category": "noise",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "noise",
+          "instruction": "Use independently recorded room noise at 18 dB SNR; retain clean reference."
+        },
+        {
+          "at_seconds": 1.0,
+          "kind": "user",
+          "instruction": "Which month comes after September?"
+        }
+      ],
+      "expected": [
+        "Answer October.",
+        "Record intelligibility and degradation against the paired clean trial.",
+        "No crash or runaway generation."
+      ]
+    },
+    {
+      "id": "context-09",
+      "category": "context",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "My reference number is 109. Remember it."
+        },
+        {
+          "at_seconds": 3.0,
+          "kind": "user",
+          "instruction": "What should I consider when arranging a concert ticket?"
+        },
+        {
+          "at_seconds": 13.0,
+          "kind": "user",
+          "instruction": "What reference number did I give you?"
+        }
+      ],
+      "expected": [
+        "Recall 109 within the declared context budget."
+      ]
+    },
+    {
+      "id": "reconnect-09",
+      "category": "reconnect",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Remember the secret word violet9."
+        },
+        {
+          "at_seconds": 4.0,
+          "kind": "disconnect",
+          "instruction": "Close transport and discard session state."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "reconnect",
+          "instruction": "Open a new session."
+        },
+        {
+          "at_seconds": 6.0,
+          "kind": "user",
+          "instruction": "What secret word did I tell you in this conversation?"
+        }
+      ],
+      "expected": [
+        "New session must not retain the previous secret.",
+        "Reconnect without stale audio or sequence state."
+      ]
+    },
+    {
+      "id": "question-10",
+      "category": "question",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "What temperature does water freeze at in Celsius?"
+        }
+      ],
+      "expected": [
+        "Answer zero degrees.",
+        "Complete a relevant spoken response."
+      ]
+    },
+    {
+      "id": "pause-10",
+      "category": "pause",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "I need help choosing a grocery list, but first"
+        },
+        {
+          "at_seconds": 2.0,
+          "kind": "pause",
+          "instruction": "Remain silent for 1.5 seconds inside this unfinished sentence."
+        },
+        {
+          "at_seconds": 3.5,
+          "kind": "user",
+          "instruction": "please ask me about my budget before making a suggestion."
+        }
+      ],
+      "expected": [
+        "Wait for completion of the question.",
+        "Ask about the budget before suggesting an option."
+      ]
+    },
+    {
+      "id": "correction-10",
+      "category": "correction",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Plan a grocery list for 11 people."
+        },
+        {
+          "at_seconds": 2.0,
+          "kind": "user",
+          "instruction": "Actually, I meant 21 people. Repeat the corrected number."
+        }
+      ],
+      "expected": [
+        "Use 21, not the original number."
+      ]
+    },
+    {
+      "id": "interruption-10",
+      "category": "interruption",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Give me a detailed explanation of how to arrange a grocery list."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "interrupt",
+          "instruction": "Stop. Just tell me whether 12 is greater than 10."
+        }
+      ],
+      "expected": [
+        "Yield the audible turn after the interruption.",
+        "Answer yes to the replacement question."
+      ]
+    },
+    {
+      "id": "backchannel-10",
+      "category": "backchannel",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Explain three considerations for a grocery list."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "backchannel",
+          "instruction": "Say mm-hmm briefly while the assistant speaks."
+        }
+      ],
+      "expected": [
+        "Do not treat acknowledgement as a mandatory stop.",
+        "Complete the requested explanation."
+      ]
+    },
+    {
+      "id": "overlap-10",
+      "category": "overlap",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Tell me about a grocery list."
+        },
+        {
+          "at_seconds": 4.0,
+          "kind": "overlap",
+          "instruction": "A second input speaker says: focus on accessibility for 10 visitors."
+        }
+      ],
+      "expected": [
+        "Preserve the overlapping input without transport failure.",
+        "Inspect whether accessibility constraint is acknowledged; record ambiguity."
+      ]
+    },
+    {
+      "id": "silence-10",
+      "category": "silence",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Say the number 10 once, then wait silently."
+        },
+        {
+          "at_seconds": 3.0,
+          "kind": "silence",
+          "instruction": "Provide no speech for the rest of the scenario."
+        }
+      ],
+      "expected": [
+        "Say 10 once.",
+        "Avoid repeated or unprompted monologue during silence."
+      ]
+    },
+    {
+      "id": "noise-10",
+      "category": "noise",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "noise",
+          "instruction": "Use independently recorded room noise at 20 dB SNR; retain clean reference."
+        },
+        {
+          "at_seconds": 1.0,
+          "kind": "user",
+          "instruction": "What temperature does water freeze at in Celsius?"
+        }
+      ],
+      "expected": [
+        "Answer zero degrees.",
+        "Record intelligibility and degradation against the paired clean trial.",
+        "No crash or runaway generation."
+      ]
+    },
+    {
+      "id": "context-10",
+      "category": "context",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "My reference number is 110. Remember it."
+        },
+        {
+          "at_seconds": 3.0,
+          "kind": "user",
+          "instruction": "What should I consider when arranging a grocery list?"
+        },
+        {
+          "at_seconds": 13.0,
+          "kind": "user",
+          "instruction": "What reference number did I give you?"
+        }
+      ],
+      "expected": [
+        "Recall 110 within the declared context budget."
+      ]
+    },
+    {
+      "id": "reconnect-10",
+      "category": "reconnect",
+      "duration_seconds": 25.0,
+      "events": [
+        {
+          "at_seconds": 0.0,
+          "kind": "user",
+          "instruction": "Remember the secret word violet10."
+        },
+        {
+          "at_seconds": 4.0,
+          "kind": "disconnect",
+          "instruction": "Close transport and discard session state."
+        },
+        {
+          "at_seconds": 5.0,
+          "kind": "reconnect",
+          "instruction": "Open a new session."
+        },
+        {
+          "at_seconds": 6.0,
+          "kind": "user",
+          "instruction": "What secret word did I tell you in this conversation?"
+        }
+      ],
+      "expected": [
+        "New session must not retain the previous secret.",
+        "Reconnect without stale audio or sequence state."
+      ]
+    }
+  ]
+}

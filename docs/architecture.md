@@ -1,381 +1,336 @@
-# aether — архитектура голосовой модели
+# aether — voice model architecture
 
-Статус: проектная спецификация, версия 0.1.
-Дата: 2026-09-16.
+Status: design specification, version 0.1.
+Date: 2026-09-16.
 
-Этот документ описывает целевое устройство aether. Реализация, обученные веса и результаты измерений в репозитории пока отсутствуют. Численные значения ниже служат исходной конфигурацией или критериями проверки, а не заявлением о достигнутом качестве. Обязательный стек — Python 3.12 и uv; сервер, модель, обучение, оценка и локальный клиент реализуются на Python. Полная навигация по спецификации находится в [README](README.md).
+This document describes the target design of aether. The implementation, trained weights, and measurement results are not yet present in the repository. The numerical values below serve as an initial configuration or verification criteria, not a claim of achieved quality. The required stack is Python 3.12 and uv; the model, training, and evaluation are implemented in Python. Full navigation of the specification is in [README](README.md).
 
-## 1. Цель
+## 1. Purpose
 
-Организация выполнения: текущая машина — разработка и ограниченные тесты без обучения; обучение и полномасштабные проверки — удалённый runtime платного Google Colab через notebook. План реализации и статусы находятся в [tasks.md](tasks.md). Указания на обучение и GPU-измерения ниже всегда относятся к этой удалённой среде.
+Execution setup: the current machine is used for development and limited tests without training; training and full-scale checks run on the remote runtime of paid Google Colab via a notebook. The implementation plan and statuses are in [tasks.md](tasks.md). References to training and GPU measurements below always refer to this remote environment.
 
-aether — голосовая система, которая непрерывно воспринимает речь пользователя и одновременно может формировать собственную речь. Первая задача команды — получить естественный разговор: небольшой интервал перед ответом, возможность перебить систему, короткие подтверждения, корректную обработку пауз и устойчивый голос.
+aether is a voice system that continuously perceives the user's speech while simultaneously being able to produce its own speech. The team's first task is to achieve a natural conversation: a short interval before responding, the ability to interrupt the system, brief acknowledgments, correct handling of pauses, and a stable voice.
 
-Развитие разделяется на две проверяемые цели:
+Development is split into two verifiable goals:
 
-1. Воспроизвести динамику живого голосового общения.
-2. Повысить содержательность ответов, следование инструкциям и способность решать задачи, сохранив эту динамику.
+1. Reproducing the dynamics of live voice conversation.
+2. Increasing the substantiveness of responses, instruction-following, and problem-solving ability, while preserving this dynamic.
 
-Самостоятельный интерфейс и сервер ещё не означают создание самостоятельной обученной модели. Для голосовых способностей нужны совместимые обученные компоненты и диалоговые данные. Повторение структуры нейросети со случайными весами не даст работающего собеседника.
+A self-contained interface by itself does not amount to a self-contained trained model. Voice capabilities require compatible trained components and dialogue data. Replicating the neural network's structure with random weights will not produce a working conversational partner.
 
-## 2. Границы первой версии
+## 2. Boundaries of the first version
 
-Первый исследовательский прототип обслуживает один разговор на одном вычислительном worker. Первый живой клиент — локальное Python-приложение с микрофоном и наушниками. Браузерный клиент — последующий необязательный адаптер; ему потребуется небольшой слой JavaScript для браузерных аудио API. Сервер выполняет нейросетевые вычисления. Вход и выход — монофоническое потоковое аудио.
+The first research prototype serves one conversation on one compute worker. Input and output are streamed mono audio.
 
-В первую версию входят:
+The first version includes:
 
-- одновременные приём микрофона и воспроизведение ответа;
-- потоковое кодирование и декодирование звука;
-- совместная модель текста и двух аудиопотоков;
-- изолированное состояние разговора;
-- измерение задержки, устойчивости и качества;
-- воспроизводимый набор диалоговых испытаний.
+- simultaneous microphone input and response playback;
+- streaming audio encoding and decoding;
+- a joint model of text and two audio streams;
+- isolated conversation state;
+- measurement of latency, stability, and quality;
+- a reproducible set of dialogue trials.
 
-Долговременная память, выполнение внешних действий, изменение голоса и массовое обслуживание пользователей — последующие этапы. Русский язык является отдельной целью обучения и оценки: его нельзя считать поддержанным только потому, что текстовый токенизатор способен кодировать кириллицу.
+Long-term memory, execution of external actions, voice modification, and serving users at scale are subsequent stages. Russian is a separate training and evaluation goal: it cannot be considered supported merely because the text tokenizer is able to encode Cyrillic.
 
-## 3. Общая схема
+## 3. Overall diagram
 
 ```mermaid
 flowchart LR
-    MIC[Микрофон] --> CLIENT[Захват звука и подавление эха]
-    CLIENT --> IN[Входной буфер сервера]
-    IN --> ENC[Потоковый аудиоэнкодер]
-    ENC --> USER[Токены речи пользователя]
-    USER --> TEMP[Временной трансформер]
-    STATE[История и состояние сессии] --> TEMP
-    TEMP --> TEXT[Следующий текстовый токен]
-    TEMP --> DEPTH[Трансформер аудиокодов]
+    IN[Raw audio input] --> ENC[Streaming audio encoder]
+    ENC --> USER[User speech tokens]
+    USER --> TEMP[Temporal transformer]
+    STATE[Session history and state] --> TEMP
+    TEMP --> TEXT[Next text token]
+    TEMP --> DEPTH[Audio code transformer]
     TEXT --> DEPTH
-    DEPTH --> DEC[Потоковый аудиодекодер]
-    DEC --> OUT[Выходной буфер клиента]
-    OUT --> SPEAKER[Воспроизведение]
-    TEXT --> UI[Текст ответа в интерфейсе]
+    DEPTH --> DEC[Streaming audio decoder]
+    DEC --> OUT[Raw audio output]
+    TEXT --> UI[Response text in interface]
     DEPTH --> STATE
     TEXT --> STATE
 ```
 
-Приём и воспроизведение идут независимо. Пока система говорит, входной поток продолжает обновлять её состояние. Отсутствие речи также является частью временной последовательности: тишину нельзя просто вырезать без изменения поведения модели.
+Reception and playback proceed independently. While the system is speaking, the input stream continues to update its state. The absence of speech is also part of the temporal sequence: silence cannot simply be cut out without changing the model's behavior.
 
-## 4. Представление аудио
+## 4. Audio representation
 
-Исходный контракт прототипа:
+Initial prototype contract:
 
-| Параметр | Проектное значение |
+| Parameter | Design value |
 |---|---|
-| Аудио внутри модельного контура | PCM, mono, 24 000 Гц |
-| Частота модельных кадров | 12,5 Гц |
-| Длительность кадра | 80 мс |
-| Отсчётов в кадре | 1 920 |
-| Активных аудиокодов на поток и кадр | 8 |
-| Размер словаря одного аудиокода | 2 048 |
-| Аудиопотоки | Пользователь и aether |
-| Дополнительный поток | Текст собственной речи aether |
+| Audio inside the model loop | PCM, mono, 24,000 Hz |
+| Model frame rate | 12.5 Hz |
+| Frame duration | 80 ms |
+| Samples per frame | 1,920 |
+| Active audio codes per stream per frame | 8 |
+| Vocabulary size of one audio code | 2,048 |
+| Audio streams | User and aether |
+| Additional stream | Text of aether's own speech |
 
-Это согласованный стартовый контракт. Его необходимо сверить с выбранными весами до реализации загрузчика. Количество кодовых книг, размер словарей и порядок потоков нельзя менять независимо от модели.
+This is an agreed starting contract. It needs to be checked against the chosen weights before the loader is implemented. The number of codebooks, vocabulary sizes, and stream order cannot be changed independently of the model.
 
-Восьми кодам с 2 048 значениями требуется теоретически 88 бит на кадр. При 12,5 кадрах в секунду это 1 100 бит/с на один поток без транспортных накладных расходов. Этот расчёт относится к дискретному представлению внутри модели, а не к реальному сетевому битрейту браузера.
+Eight codes with 2,048 values theoretically require 88 bits per frame. At 12.5 frames per second, this is 1,100 bits/s for a single stream without transport overhead. This calculation refers to the discrete representation inside the model, not to the actual network bitrate of a browser.
 
-### 4.1. Аудиокодек
+### 4.1. Audio codec
 
-Энкодер преобразует непрерывную волну в компактные признаки. Квантователь заменяет их дискретными индексами кодовых книг. Декодер восстанавливает звуковую волну из последовательности индексов.
+The encoder converts the continuous waveform into compact features. The quantizer replaces them with discrete codebook indices. The decoder reconstructs the audio waveform from the sequence of indices.
 
-Целевая структура:
+Target structure:
 
 ```text
-PCM → каузальный энкодер → временные признаки
-    → понижение частоты признаков → квантователь → аудиокоды
+PCM → causal encoder → temporal features
+    → feature downsampling → quantizer → audio codes
 
-аудиокоды → восстановление признаков → повышение частоты
-          → каузальный декодер → PCM
+audio codes → feature reconstruction → upsampling
+          → causal decoder → PCM
 ```
 
-Каузальность означает отсутствие зависимости от ещё не поступившего звука. Между вызовами сохраняются состояния свёрток и внимания. Каждый кадр продолжает предыдущие; отдельное кодирование кадров со сбросом состояния создаст разрывы.
+Causality means there is no dependence on audio that has not yet arrived. Convolution and attention states are preserved between calls. Each frame continues the previous ones; encoding frames separately with a state reset would create discontinuities.
 
-Полезно разделить роли кодов: первый должен хорошо передавать содержание речи, остальные — уточнять акустику. Для обучения такого представления можно использовать семантического учителя и отдельную цель восстановления звука. Выбор учителя и функций потерь — самостоятельный эксперимент.
+It is useful to separate the roles of the codes: the first should convey the content of speech well, while the rest refine the acoustics. Training such a representation can use a semantic teacher along with a separate audio-reconstruction objective. The choice of teacher and loss functions is a separate experiment.
 
-Качество кодека проверяется отдельно от диалоговой модели: через разборчивость восстановленной речи, устойчивость тембра, согласные, паузы, шумы и непрерывность на границах кадров.
+Codec quality is verified separately from the dialogue model: through the intelligibility of reconstructed speech, timbre stability, consonants, pauses, noise, and continuity across frame boundaries.
 
-### 4.2. Два независимых аудиопотока
+### 4.2. Two independent audio streams
 
-Пользователь и aether занимают разные группы кодовых каналов на общей временной оси. Их речь может пересекаться. Смешивание обоих голосов в один канал уничтожает явное разделение ролей и усложняет обучение перебиваниям.
+The user and aether occupy different groups of code channels on a shared time axis. Their speech can overlap. Mixing both voices into a single channel destroys the explicit separation of roles and makes training for interruptions harder.
 
-Во время интерактивного вывода пользовательские коды поступают от микрофона, а собственные коды генерирует модель. Во время обучения доступны записанные целевые последовательности. Состав предсказываемых каналов и маски потерь должны быть явно указаны в конфигурации эксперимента.
+During interactive inference, the user's codes come from the microphone, while the model generates its own codes. During training, recorded target sequences are available. The set of predicted channels and the loss masks must be explicitly specified in the experiment configuration.
 
-## 5. Совместная модель текста и речи
+## 5. Joint model of text and speech
 
-### 5.1. Временной трансформер
+### 5.1. Temporal transformer
 
-Крупная авторегрессионная сеть обрабатывает развитие разговора по времени. Вход одного шага собирается из эмбеддингов текстового и аудиоканалов с учётом их задержек. История хранится в KV-кэше внимания.
+A large autoregressive network processes the evolution of the conversation over time. The input for a single step is assembled from the embeddings of the text and audio channels, accounting for their delays. History is stored in the attention KV cache.
 
-Для первоначальной конфигурации рассматриваются 32 слоя, размер скрытого состояния 4 096 и 32 головы внимания. Это исследовательская отправная точка; окончательный размер зависит от выбранной инициализации, оборудования и бюджета обучения.
+For the initial configuration, 32 layers, a hidden state size of 4,096, and 32 attention heads are under consideration. This is a research starting point; the final size depends on the chosen initialization, hardware, and training budget.
 
-Сеть делает один временной шаг на аудиокадр. Несколько аудиокодов внутри кадра не должны превращаться в столько же отдельных шагов крупной сети: иначе стоимость и задержка резко вырастут.
+The network takes one temporal step per audio frame. Multiple audio codes within a frame must not turn into an equal number of separate steps of the large network: otherwise cost and latency would rise sharply.
 
-### 5.2. Текстовый поток
+### 5.2. Text stream
 
-Из временного состояния формируется распределение следующего текстового токена. Текст представляет содержание произносимого ответа и помогает направлять генерацию аудио.
+The distribution of the next text token is formed from the temporal state. The text represents the content of the spoken response and helps guide audio generation.
 
-Это не отдельный неограниченный процесс рассуждения. Нельзя предполагать, что модель успевает выполнить сложное планирование за один аудиокадр.
+This is not a separate, unbounded reasoning process. It cannot be assumed that the model manages to perform complex planning within a single audio frame.
 
-Частота появления слов не совпадает с частотой кадров. Для выравнивания нужны специальные позиции заполнения и правила размещения токенов относительно звука. Их необходимо сохранять одинаковыми в подготовке данных, обучении и выводе.
+The rate at which words appear does not match the frame rate. Alignment requires special filler positions and rules for placing tokens relative to the audio. These must be kept consistent across data preparation, training, and inference.
 
-Отображаемый текст ответа не является транскриптом пользователя. Если для оценки или будущих инструментов потребуется распознавание пользовательской речи, оно добавляется отдельным диагностическим либо функциональным компонентом.
+The displayed response text is not a transcript of the user. If recognition of the user's speech is needed for evaluation or future tools, it is added as a separate diagnostic or functional component.
 
-### 5.3. Трансформер аудиокодов
+### 5.3. Audio code transformer
 
-Меньшая сеть последовательно предсказывает аудиокоды внутри модельного шага. Она получает временное состояние, текстовый токен и ранее выбранные коды этого шага.
+A smaller network sequentially predicts the audio codes within a model step. It receives the temporal state, the text token, and the codes already chosen at this step.
 
-Стартовая конфигурация: 6 слоёв, скрытое состояние 1 024, 16 голов внимания. Состояние этой сети обслуживает внутренний цикл генерации кодов и не заменяет долговременный KV-кэш временного трансформера.
+Starting configuration: 6 layers, a hidden state of 1,024, and 16 attention heads. This network's state serves the inner code-generation loop and does not replace the temporal transformer's long-term KV cache.
 
-Разделение вычислений позволяет крупной сети отвечать за контекст, а меньшей — за детализацию аудиопредставления.
+This division of computation lets the large network handle context while the smaller one handles the detail of the audio representation.
 
-### 5.4. Задержки каналов
+### 5.4. Channel delays
 
-Смысловые и акустические коды могут иметь разные смещения по времени. Задержка акустических уточнений на один кадр даёт генератору дополнительный контекст, но увеличивает минимальную алгоритмическую задержку.
+Semantic and acoustic codes can have different time offsets. Delaying the acoustic refinements by one frame gives the generator additional context but increases the minimum algorithmic latency.
 
-Из-за смещений коды, рассчитанные в одном шаге сети, не обязательно относятся к одному физическому аудиокадру. Перед декодированием их необходимо собрать обратно по временным индексам.
+Because of these offsets, codes computed within a single network step do not necessarily belong to the same physical audio frame. Before decoding, they must be reassembled according to their time indices.
 
-Реализация должна явно задавать:
+The implementation must explicitly specify:
 
-- порядок каналов;
-- задержку каждого канала;
-- начальные и заполняющие токены;
-- маски недействительных позиций;
-- условия появления первого полного выходного кадра;
-- правила завершения и сброса последовательности.
+- the order of channels;
+- the delay of each channel;
+- the initial and filler tokens;
+- masks for invalid positions;
+- the conditions for the appearance of the first complete output frame;
+- the rules for terminating and resetting the sequence.
 
-Ошибки выравнивания могут давать звук правильной формы тензора, но с неверным содержанием. Проверка только размерностей недостаточна.
+Alignment errors can produce audio with the correct tensor shape but incorrect content. Checking dimensions alone is not sufficient.
 
-## 6. Потоковый цикл выполнения
+## 6. Streaming execution loop
 
-Ниже приведён концептуальный алгоритм, а не готовая реализация API:
+Below is a conceptual algorithm, not a ready-made API implementation:
 
 ```text
-создать состояние сессии
-инициализировать состояния кодека, генератора и транспорта
+create the session state
+initialize the codec, generator, and transport states
 
-пока сессия активна:
-    принять очередные аудиоданные
-    преобразовать их к внутреннему формату
-    накопить полный входной кадр
-    закодировать его с сохранением истории кодека
-    передать пользовательские коды в генератор
-    выполнить временной шаг и генерацию выходных кодов
-    восстановить выравнивание выходных каналов
-    если готов полный выходной кадр:
-        декодировать его с сохранением истории
-        отправить звук клиенту
-    отправить новые отображаемые текстовые токены
-    записать длительности этапов и размер очередей
+while the session is active:
+    receive the next audio chunk
+    convert it to the internal format
+    accumulate a complete input frame
+    encode it while preserving codec history
+    pass the user codes to the generator
+    perform a temporal step and generate output codes
+    restore alignment of the output channels
+    if a complete output frame is ready:
+        decode it while preserving history
+        queue the audio for output
+    emit new displayable text tokens
+    log stage durations and queue sizes
 
-при завершении освободить состояние сессии
+on termination, release the session state
 ```
 
-Конкретный генератор должен сам владеть расписанием задержек. Приложение не должно второй раз вручную сдвигать уже выровненный результат.
+The concrete generator is responsible for owning the delay schedule itself. The application must not manually shift an already-aligned result a second time.
 
-### 6.1. Состояние сессии
+### 6.1. Session state
 
-Каждой сессии принадлежат входной остаток PCM, состояния энкодера и декодера, KV-кэш, буфер задержанных кодов, состояние генератора случайных чисел, счётчики кадров и выходные очереди.
+Each session owns a leftover PCM buffer, the encoder and decoder states, the KV cache, a buffer of delayed codes, the random number generator state, frame counters, and output queues.
 
-Веса модели могут быть общими для нескольких сессий. Их изменяемые состояния — нет. Начало нового разговора должно сбрасывать все компоненты согласованно, иначе возможны перенос контекста и акустические артефакты.
+Model weights can be shared across several sessions. Their mutable states cannot. Starting a new conversation must reset all components consistently, otherwise context leakage and acoustic artifacts are possible.
 
-### 6.2. Реальное время и перегрузка
+### 6.2. Real time and overload
 
-На один кадр приходится 80 мс входящего звука. Среднее время обработки должно быть меньше этого интервала с запасом; также необходимо контролировать редкие медленные шаги.
+Each frame corresponds to 80 ms of incoming audio. Average processing time must be below this interval with margin; rare slow steps must also be monitored.
 
-Очереди должны быть ограничены. При перегрузке сначала прекращается приём новых сессий. Длительное накопление аудио в очереди превращает живой разговор в воспроизведение прошлого.
+Queues must be bounded. Under overload, accepting new sessions is stopped first. Prolonged accumulation of audio in a queue turns a live conversation into playback of the past.
 
-Произвольное удаление кадров из модельной истории нарушает её временную структуру. Политика пропусков, восстановления соединения и сброса должна быть отдельной проверяемой частью протокола.
+Arbitrarily dropping frames from the model's history disrupts its temporal structure. The policy for drops, reconnection, and reset must be a separate, verifiable part of the protocol.
 
-## 7. Голосовое поведение
+## 7. Voice behavior
 
-Full-duplex означает, что вход продолжает обрабатываться во время выхода. Сам по себе двусторонний сокет ещё не обеспечивает умение корректно уступать слово.
+Full-duplex means that input continues to be processed during output. A bidirectional socket by itself does not provide the ability to correctly yield the floor.
 
-Модель должна научиться различать:
+The model must learn to distinguish between:
 
-- завершённый вопрос и паузу внутри предложения;
-- короткое подтверждение и попытку перебить;
-- исправление пользователем своих слов;
-- обращение к системе и фоновую речь;
-- уместную тишину и необходимость ответить.
+- a completed question and a pause within a sentence;
+- a short acknowledgment and an attempt to interrupt;
+- the user correcting their own words;
+- speech addressed to the system and background speech;
+- appropriate silence and the need to respond.
 
-Можно добавить принудительное прекращение воспроизведения по явной команде пользователя. Такой механизм следует оценивать отдельно от обученного поведения. Простое выключение динамика не отменяет уже сгенерированные токены в истории; необходима политика согласования слышимого ответа и внутреннего состояния.
+A forced stop of playback triggered by an explicit user command can be added. Such a mechanism should be evaluated separately from the learned behavior. Simply turning off the speaker does not cancel the tokens already generated in the history; a policy is needed to reconcile the audible response with the internal state.
 
-## 8. Клиент и сервер
+## 9. Training and data
 
-### 8.1. Браузерный клиент
+### 9.1. Initialization
 
-Клиент отвечает за разрешение микрофона, захват звука, подавление эха, преобразование частоты, отправку небольших пакетов и непрерывное воспроизведение. Передача звука не останавливается на время ответа.
+The practical path is to start from compatible pretrained components and obtain a measurable baseline result. Training the entire system from scratch is a separate program requiring a substantially larger budget of data and compute.
 
-Размер сетевого пакета может отличаться от модельного кадра. Буфер сервера собирает из пакетов точные кадры. Для удалённого доступа нужен защищённый контекст браузера.
+The text network cannot be replaced with an arbitrary, stronger LLM without adaptation. Dimensions, vocabulary, embeddings, the distribution of hidden states, and the connections to the audio generator must be aligned.
 
-Начальную оценку проводить в наушниках, затем повторять на динамиках. Это помогает отделить ошибки модели от обратной акустической связи.
+### 9.2. Stages of training the model
 
-### 8.2. Транспорт
+The proposed sequence:
 
-Для первой версии предлагается WebSocket с двоичными аудиосообщениями. PCM упрощает диагностику, транспортный аудиокодек уменьшает трафик. Выбор фиксируется экспериментом по задержке и качеству; нейросетевые аудиотокены и сетевое сжатие — разные уровни.
+1. Verifying the quality of the text foundation on tasks in the target language.
+2. Obtaining or training a streaming audio codec.
+3. Training text-audio alignment on aligned data.
+4. Training joint processing of the two audio streams.
+5. Fine-tuning on natural dialogues with pauses and overlapping speech.
+6. Adding instructional dialogues and target assistant behavior.
+7. Carrying out targeted improvements based on errors from an independent evaluation set.
 
-События протокола aether:
+Retention of text capabilities needs to be checked after every substantial stage. Improved sound quality does not guarantee improved responses.
 
-| Событие | Назначение |
-|---|---|
-| `session.start` | Согласование версии и аудиоформата |
-| `session.ready` | Подтверждение готовности прогретого worker |
-| `audio.input` | Пакет микрофона с порядковым номером |
-| `audio.output` | Пакет ответа с порядковым номером |
-| `text.output` | Фрагмент текста собственной речи |
-| `session.stop` | Завершение разговора |
-| `session.error` | Ошибка с машинным кодом причины |
+### 9.3. Dialogue data contract
 
-Это предлагаемый контракт aether, который ещё предстоит реализовать. Метки времени разных устройств нельзя напрямую вычитать без синхронизации часов.
+Each example requires two synchronized channels with fixed roles, time boundaries, transcripts, language, recording provenance, and usage terms.
 
-### 8.3. Разделение сервисов
+Pauses, interruptions, short interjections, and overlapping speech are preserved. The training set cannot be reduced to tidy question-answer sequences alone while still expecting natural behavior under voice overlap.
 
-Первоначально достаточно клиента, сервера сессий и одного inference worker. Отдельный сервис хранения записей добавляется только для согласованного сбора данных и оценки.
+The train/validation/test split is done by conversations and participants, not by adjacent fragments of the same recording. Synthetic and real data are tracked separately. The independent test set is not used to select training examples.
 
-Масштабирование выполняется после измерения одной сессии. Ограничения определяются одновременно памятью, временем кадра и очередями. Динамический batching допустим только при сохранении временных сроков и изоляции состояний.
+### 9.4. Loss functions
 
-## 9. Обучение и данные
+The initial objective of the dialogue model is a weighted sum of cross-entropy for the text and the predicted audio codes. The weight of the text, the semantic audio code, the acoustic refinements, and the filler tokens is chosen experimentally.
 
-### 9.1. Инициализация
+Initial, missing, and misaligned positions are masked. Metrics for each component are tracked separately: the overall loss can mask a degradation in text quality behind an improvement in acoustics.
 
-Практический путь — начать с совместимых предварительно обученных компонентов и получить измеримый базовый результат. Обучение всей системы с нуля является отдельной программой с существенно большим бюджетом данных и вычислений.
+Adapter-based fine-tuning is suitable for the first controlled experiments but does not guarantee mastery of a new language or complex reasoning. For each experiment, the base weights, adapter parameters, data composition, and full evaluation result are retained.
 
-Текстовую сеть нельзя заменить произвольной более сильной LLM без адаптации. Размерности, словарь, эмбеддинги, распределение скрытых состояний и связи с аудиогенератором должны быть согласованы.
+## 10. Improving response quality
 
-### 9.2. Этапы обучения собственной модели
+The assessment of a "weak conversational partner" needs to be broken down into measurable causes: misunderstanding the audio, loss of context, lack of factual knowledge, logical error, ignoring an instruction, or a premature response.
 
-Предлагаемая последовательность:
+Three directions are proposed:
 
-1. Проверить качество текстовой основы на задачах целевого языка.
-2. Получить или обучить потоковый аудиокодек.
-3. Обучить согласование текста и аудио на выровненных данных.
-4. Обучить совместную обработку двух аудиопотоков.
-5. Дообучить на естественных диалогах с паузами и пересечениями речи.
-6. Добавить инструкционные диалоги и целевое поведение помощника.
-7. Выполнять направленные улучшения по ошибкам независимого набора оценки.
-
-Сохранение текстовых способностей необходимо проверять после каждого существенного этапа. Улучшение звучания не гарантирует улучшения ответов.
-
-### 9.3. Контракт диалоговых данных
-
-Для каждого примера нужны два синхронных канала с фиксированными ролями, временные границы, транскрипты, язык, происхождение записи и условия использования.
-
-Сохраняются паузы, перебивания, короткие междометия и одновременная речь. Нельзя превращать обучающую выборку только в аккуратные последовательности «вопрос — ответ» и ожидать естественного поведения при наложении голосов.
-
-Разделение train, validation и test выполняется по разговорам и участникам, а не по соседним фрагментам одной записи. Синтетические и реальные данные учитываются отдельно. Независимый тестовый набор не используется для выбора обучающих примеров.
-
-### 9.4. Функции потерь
-
-Исходная цель диалоговой модели — взвешенная сумма cross-entropy для текста и предсказываемых аудиокодов. Вес текста, смыслового аудиокода, акустических уточнений и заполнения выбирается экспериментально.
-
-Начальные, отсутствующие и невыравненные позиции маскируются. Метрики каждого компонента ведутся отдельно: общий loss способен скрыть ухудшение текста на фоне улучшения акустики.
-
-Дообучение адаптерами подходит для первых контролируемых экспериментов, но не гарантирует освоение нового языка или сложного рассуждения. Для каждого опыта сохраняются базовые веса, параметры адаптера, состав данных и полный результат оценки.
-
-## 10. Повышение качества ответов
-
-Оценку «слабый собеседник» необходимо разложить на измеримые причины: неверное понимание аудио, потеря контекста, незнание факта, логическая ошибка, игнорирование инструкции или преждевременный ответ.
-
-Предлагаются три направления:
-
-| Направление | Возможная польза | Основной риск |
+| Direction | Possible benefit | Main risk |
 |---|---|---|
-| Качественные диалоги и направленное дообучение | Улучшение полезности при сохранении структуры | Переобучение и ухудшение голосового поведения |
-| Более сильная текстовая основа с мультимодальным обучением | Повышение предела содержательных способностей | Высокая стоимость и несовместимость готовых весов |
-| Внешний планировщик для сложных задач | Доступ к инструментам и более длительным вычислениям | Задержка и рассогласование плана с уже произнесённым |
+| High-quality dialogues and targeted fine-tuning | Improved usefulness while preserving structure | Overfitting and degraded voice behavior |
+| A stronger text foundation with multimodal training | Raising the ceiling of substantive ability | High cost and incompatibility with off-the-shelf weights |
+| An external planner for complex tasks | Access to tools and longer computation | Latency and mismatch between the plan and what has already been spoken |
 
-Для первого этапа выбирается воспроизводимая единая голосовая модель. Внешний планировщик добавляется только после получения базовых измерений. Для него потребуется обученный или явно реализованный интерфейс управления речью; наличие текстового потока само по себе таким интерфейсом не является.
+For the first stage, a reproducible, unified voice model is chosen. An external planner is added only after baseline measurements have been obtained. It will require a trained or explicitly implemented speech-control interface; the mere presence of a text stream does not by itself constitute such an interface.
 
-## 11. Измерения и критерии готовности
+## 11. Measurements and readiness criteria
 
-### 11.1. Разделение задержек
+### 11.1. Breakdown of latency
 
-Измерять отдельно:
+Measured separately:
 
-- ожидание полного входного кадра;
-- передачу и очереди;
-- кодирование, генерацию и декодирование;
-- заполнение выходного буфера;
-- время до фактического воспроизведения;
-- поведенческий интервал между завершением вопроса и началом ответа.
+- waiting for a complete input frame;
+- transmission and queuing;
+- encoding, generation, and decoding;
+- filling the output buffer;
+- time to actual playback;
+- the behavioral interval between the end of a question and the start of the response.
 
-При кадре 80 мс и дополнительном смещении на один кадр номинальный алгоритмический бюджет составляет 160 мс до остальных расходов. Это не обещание времени ответа: модель может намеренно молчать, а вычисления и сеть добавляют задержку.
+With an 80 ms frame and an additional one-frame offset, the nominal algorithmic budget is 160 ms before other costs. This is not a promise about response time: the model may deliberately remain silent, and computation and network add further latency.
 
-### 11.2. Первоначальные инженерные ориентиры
+### 11.2. Initial engineering benchmarks
 
-Все пороги ниже предложены для локального стенда с одним пользователем и требуют пересмотра после первого измерения.
+All the thresholds below are proposed for a local single-user bench and require revision after the first measurement.
 
-| Метрика | Начальный ориентир |
+| Metric | Initial benchmark |
 |---|---|
-| Время полного вычислительного шага | p95 < 80 мс |
-| Транспортно-вычислительная задержка готового аудио | p50 ≤ 300 мс, p95 ≤ 500 мс |
-| Рост очереди в пределах тестовой сессии | Отсутствует устойчивое накопление |
-| Изоляция повторных подключений | Отсутствуют звук и контекст прошлой сессии |
-| Поддерживаемая длительность | Явно измерена и указана для конфигурации |
-| Перебивание | Измеряются время уступки и корректность следующей реплики |
+| Full compute step time | p95 < 80 ms |
+| Transport-and-compute latency for ready audio | p50 ≤ 300 ms, p95 ≤ 500 ms |
+| Queue growth within a test session | No sustained accumulation |
+| Isolation across reconnections | No audio or context from the previous session |
+| Supported duration | Explicitly measured and stated for the configuration |
+| Interruption | Time to yield and correctness of the next reply are measured |
 
-Время уступки отсчитывается от начала явной попытки перебить до прекращения слышимой речи. Короткие подтверждения проверяются отдельным классом, чтобы система не считалась хорошей лишь потому, что замолкает при любом звуке.
+Time-to-yield is measured from the start of an explicit attempt to interrupt to the point where audible speech stops. Short acknowledgments are checked as a separate class, so that the system is not judged good merely because it falls silent at any sound.
 
-### 11.3. Набор оценки
+### 11.3. Evaluation set
 
-Подготовить не менее 100 сценариев: короткие вопросы, инструкции с ограничениями, исправления, паузы внутри фразы, перебивания, подтверждения, тишина, шум, числа и имена, длинные разговоры и повторные подключения.
+At least 100 scenarios are prepared: short questions, instructions with constraints, corrections, mid-phrase pauses, interruptions, acknowledgments, silence, noise, numbers and names, long conversations, and reconnections.
 
-Для каждого сценария фиксируются ожидаемые признаки поведения, аудио, текст ответа, конфигурация, seed и временные метрики. Стохастические сценарии повторяются с несколькими seed. Качество смысла и голоса оценивается раздельно, с ручной проверкой части записей.
+For each scenario, the expected behavioral markers, audio, response text, configuration, seed, and timing metrics are recorded. Stochastic scenarios are repeated with several seeds. The quality of meaning and of voice is evaluated separately, with manual review of a portion of the recordings.
 
-## 12. План реализации
+## 12. Implementation plan
 
-### Этап A. Базовый исследовательский стенд
+### Stage A. Basic research bench
 
-Выбрать оборудование, язык первой проверки и совместимый комплект весов. Зафиксировать версии и контрольные суммы. Проверить кодек отдельно, затем потоковую генерацию на заранее записанном входе.
+This stage selects the hardware, the language for the first check, and a compatible set of weights. Versions and checksums are fixed. The codec is verified separately, followed by streaming generation on a pre-recorded input.
 
-Результат: воспроизводимый аудиодиалог и профиль потребления памяти без браузерных факторов.
+Result: a reproducible audio dialogue and a memory consumption profile without browser factors.
 
-### Этап B. Живой разговор
+### Stage B. Controlled improvement
 
-Добавить Python-клиент, транспорт, отдельное состояние сессии, прогрев и измерение очередей. Проверить наушники, паузы, перебивания и переподключение. Браузер и работу с динамиками проверять после реализации подавления эха.
+This stage collects errors, prepares a small curated dataset, and carries out the first fine-tuning round. The result is compared with the baseline under identical conditions.
 
-Результат: работающий голосовой прототип с известными ограничениями и сохранённым базовым набором результатов.
+Result: improvement in the selected category of responses without unacceptable degradation of latency, timbre, or dialogue dynamics.
 
-### Этап C. Контролируемое улучшение
+### Stage C. Model development
 
-Собрать ошибки, подготовить небольшой проверенный набор данных и провести первое дообучение. Сравнить с базовым результатом при одинаковых условиях.
+This stage explores the target language, a stronger text foundation, extended context, and a planner interface. Each direction is pursued as a separate experiment with its own success criterion.
 
-Результат: улучшение выбранной категории ответов без неприемлемого ухудшения задержки, тембра и диалоговой динамики.
-
-### Этап D. Развитие модели
-
-Исследовать целевой язык, более сильную текстовую основу, расширенный контекст и интерфейс планировщика. Каждое направление вести отдельным экспериментом с собственным критерием успеха.
-
-## 13. Предлагаемая структура реализации
+## 13. Proposed implementation structure
 
 ```text
 aether/
-├── docs/                # Полная документация
-├── pyproject.toml       # Метаданные и зависимости Python
-├── uv.lock              # Зафиксированное разрешение зависимостей
-├── .python-version      # Версия Python
-├── configs/             # Контракты моделей и экспериментов
+├── docs/                # Full documentation
+├── pyproject.toml       # Python metadata and dependencies
+├── uv.lock              # Locked dependency resolution
+├── .python-version      # Python version
+├── configs/             # Model and experiment contracts
 ├── src/aether/
-│   ├── audio/           # Захват, ресемплинг и буферы
-│   ├── model/           # Кодек и трансформеры
-│   ├── inference/       # Генератор и состояние сессии
-│   ├── server/          # Протокол и управление соединениями
-│   ├── client/          # Локальный Python-клиент
-│   ├── training/        # Подготовка данных и обучение
-│   └── evaluation/      # Сценарии, метрики и сравнение запусков
-└── tests/               # Выравнивание, изоляция и потоковые проверки
+│   ├── audio/           # Capture, resampling, and buffers
+│   ├── model/           # Codec and transformers
+│   ├── inference/       # Generator and session state
+│   ├── training/        # Data preparation and training
+│   └── evaluation/      # Scenarios, metrics, and run comparison
+└── tests/               # Alignment, isolation, and streaming checks
 ```
 
-Это целевая структура. Созданы документация, каркас Python-пакета с CLI, uv-окружение, синтетическая конфигурация и первые интеграционные тесты. Модельные модули пока не реализованы. Большие веса, сырые записи и обучающие наборы хранятся вне Git. Правила Python-проекта определены в [development.md](development.md).
+This is the target structure. The documentation, a Python package skeleton with a CLI, the uv environment, a synthetic configuration, and the first integration tests have been created. The model modules are not yet implemented. Large weights, raw recordings, and training sets are stored outside Git. Python project rules are defined in [development.md](development.md).
 
-## 14. Решения, которые необходимо принять
+## 14. Decisions still to be made
 
-- Какой язык является обязательным для первого демонстрационного результата?
-- На каком оборудовании измеряется задержка?
-- Какова допустимая длительность разговора и политика обновления контекста?
-- Какой бюджет доступен для получения весов, данных и обучения?
-- Какие компоненты берутся готовыми, а какие команда обучает самостоятельно?
-- Какие содержательные задачи определяют успешность aether?
+- Which language is mandatory for the first demonstration result?
+- On what hardware is latency measured?
+- What is the acceptable conversation duration and the context-refresh policy?
+- What budget is available for obtaining weights, data, and training?
+- Which components are taken off the shelf, and which does the team train itself?
+- Which substantive tasks define the success of aether?
 
-Начальный критерий успеха: aether ведёт измеримо устойчивый разговор в реальном времени, продолжает слушать во время ответа и корректно реагирует на изменение реплики пользователя. Дальнейшее повышение интеллекта оценивается относительно этого сохранённого базового результата.
+Initial success criterion: aether carries on a measurably stable real-time conversation, keeps listening while it is responding, and reacts correctly when the user changes what they are saying. Further increases in intelligence are evaluated relative to this preserved baseline result.

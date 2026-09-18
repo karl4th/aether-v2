@@ -1,41 +1,43 @@
-# aether — локальная проверка артефактов
+# aether — local artifact verification
 
-A07 выполнена частично. Реализована проверка синтетического bundle без backend:
+A07 is partially complete. Verification of a synthetic bundle without a backend has been implemented:
 
 ```sh
 uv run --locked aether inspect --config configs/model/tiny.json --manifest /path/to/manifest.json
 ```
 
-CLI выводит таблицу проверки схемы, конфигурации, файлов/SHA-256 и параметров.
-Код 0 подтверждает только синтетический контракт; `NOT_VERIFIED` явно указывает,
-что готовность модели и семантика токенизатора не проверены. Ошибки дают код 2.
-Рабочего комплекта весов в репозитории нет; маленькие фикстуры создаются тестами.
+The CLI outputs a table verifying the schema, configuration, files/SHA-256, and parameters.
+Exit code 0 confirms only the synthetic contract; `NOT_VERIFIED` explicitly indicates
+that model readiness and tokenizer semantics have not been verified. Errors produce exit code 2.
+There is no working weight bundle in the repository; small fixtures are created by the tests.
 
-`BundleManifest` версии 1 содержит:
+`BundleManifest` version 1 contains:
 
-- `layout_version=1`, `format=synthetic_json_v1`, непустое `provenance`, `dtype`;
-- полные `model` и `codec`, совпадающие с запрошенной конфигурацией;
-- `config`, `tokenizer`, `weights`: разные относительные пути, размер и SHA-256;
-- `parameters`: точные имена, shape и dtype каждого параметра.
+- `layout_version=1`, `format=synthetic_json_v1`, a non-empty `provenance`, `dtype`;
+- complete `model` and `codec` fields matching the requested configuration;
+- `config`, `tokenizer`, `weights`: distinct relative paths, size, and SHA-256;
+- `parameters`: the exact name, shape, and dtype of each parameter.
 
-Файл config содержит полную ExperimentConfig. Синтетические веса — JSON:
+The config file contains a complete ExperimentConfig. Synthetic weights are JSON:
 `{"parameters":{"layer.weight":{"shape":[2,2],"dtype":"float32","values":[1.0,2.0,3.0,4.0]}}}`.
-Число значений обязано совпадать с произведением shape; все числа конечны.
-Tokenizer проверяется на наличие и хеш, но его реальные специальные токены и
-семантика пока не проверяются. Происхождение записывается, но не удостоверяется:
-SHA-256 проверяет целостность относительно манифеста, а не доверие его автору.
+The number of values must match the product of the shape; all numbers are finite.
+The tokenizer is checked for presence and hash, but its actual special tokens and
+semantics are not yet verified. Provenance is recorded but not authenticated:
+SHA-256 verifies integrity relative to the manifest, not trust in its author.
 
-Пути за пределы bundle, ссылки, повторные JSON-ключи, неизвестные поля/версии,
-потерянные и лишние параметры отклоняются. Манифест ограничен 1 МиБ, весь
-проверяемый комплект — 16 МиБ. Этот путь не предназначен для реальных весов.
-Pickle, скачивания, автоматические преобразования layout и backend не используются.
+Paths outside the bundle, symlinks, duplicate JSON keys, unknown fields/versions,
+and missing or extra parameters are rejected. The manifest is limited to 1 MiB, and
+the entire verified bundle to 16 MiB. This path is not intended for real weights.
+Pickle, downloads, and automatic layout/backend conversions are not used.
 
-`load_synthetic_bundle` сначала проверяет комплект и точное равенство спецификаций
-`ParameterTarget`, затем один раз вызывает `install_parameters`. Адаптер отвечает
-за атомарную установку; тестовый mock подтверждает отсутствие вызовов при ошибке.
-Это загрузчик синтетических значений, а не реализация загрузки модельного state_dict.
+`load_synthetic_bundle` first verifies the bundle and the exact equality of the
+`ParameterTarget` specifications, then calls `install_parameters` exactly once. The
+adapter is responsible for atomic installation; a test mock confirms that no calls
+occur on error. This is a loader for synthetic values, not an implementation of
+model state_dict loading.
 
-Для завершения A07 нужны выбранные веса и backend, полный архитектурный контракт,
-проверка реального токенизатора и строгое сопоставление state_dict. Layout-конвертер
-добавляется только для конкретной документированной пары версий. Пока неизвестные
-layout отклоняются. Проверки полных весов выполнятся в удалённом Colab позднее.
+Completing A07 requires selected weights and a backend, a full architectural
+contract, real tokenizer verification, and strict state_dict matching. A layout
+converter is added only for a specific, documented version pair. Unknown
+layouts are rejected for now. Full-weight verification will be performed on
+remote Colab later.

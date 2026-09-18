@@ -1,0 +1,24 @@
+name: aether local contracts
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Install uv
+        run: python3 -m pip install uv==0.12.13
+      - name: Install development environment only
+        run: uv sync --locked --group dev --python 3.12.14
+      - name: Lint and types
+        run: |
+          uv run --locked ruff check .
+          uv run --locked ruff format --check .
+          uv run --locked mypy src/aether
+      - name: CPU contracts and mock integration tests
+        run: uv run --locked pytest

@@ -1,516 +1,491 @@
-# aether — единый план задач
+# aether — Unified Task Plan
 
-Дата состояния: 2026-09-18. Этот файл — единственный реестр задач и их выполнения. Остальные документы описывают технические контракты, но не ведут параллельный список статусов.
+Status date: 2026-09-18. This file is the single registry of tasks and their completion status. Other documents describe technical contracts but do not maintain a parallel status list.
 
-## 1. Правила работы и ограничения
+## 1. Operating Policy and Constraints
 
-**Автономное продолжение (инструкция пользователя):** после выполнения задачи не
-ждать команды «дальше». Последовательно выполнять доступные задачи, тестировать,
-исправлять и вести этот реестр. При блокировке продвигать независимые части;
-останавливаться только на целостном результате доступной работы или конкретном
-действии пользователя. Запрашивать необходимые данные своевременно. Платные
-ресурсы и обучение автоматически не запускать.
+**Autonomous continuation (user instruction):** after a task is completed, work continues without waiting for a "go ahead" command. Available tasks are executed sequentially, tested, fixed, and this registry is kept up to date. When blocked, independent parts are advanced; work stops only once a coherent result has been reached for the available work, or when a specific user action is required. Necessary data is requested in a timely manner. Paid resources and training are not launched automatically.
 
-**На текущей машине выполняются только разработка, подготовка документации и ограниченные тесты. Обучение здесь запрещено. Всё обучение выполняется в удалённом GPU runtime платного Google Colab через Jupyter notebook.** Подключение Colab к local runtime этой машины не допускается: оно перенесло бы вычисления обратно на локальный компьютер.
+**Only development, documentation preparation, and limited tests are performed on the current machine. Training is prohibited here. All training is performed in a remote GPU runtime of paid Google Colab via a Jupyter notebook.** Connecting Colab to this machine's local runtime is not permitted, since that would move the computation back onto the local machine.
 
-Локально допустимы проверки схем, синтетические данные, маленькие forward-проходы, аудиобуферы, mock-сервер и интеграционные тесты. Локально не запускаются optimizer steps, переобучение одного примера, LoRA, полное обучение, длительный подбор гиперпараметров и полная GPU-оценка. Даже короткий обучающий smoke test выполняется в Colab.
+Locally permitted: schema checks, synthetic data, small forward passes, audio buffers, a mock server, and integration tests. Not run locally: optimizer steps, single-example overfitting, LoRA, full training, long hyperparameter searches, and full GPU evaluation. Even a short training smoke test is run in Colab.
 
-Код модели, обучения и оценки — в Python-пакете, зависимости и процессы — через uv. Notebook управляет запуском, показывает результаты и подключает хранилище; он не содержит вторую самостоятельную реализацию тренера.
+Model, training, and evaluation code lives in the Python package; dependencies and processes are managed through uv. The notebook orchestrates runs, displays results, and connects to storage; it does not contain a second, independent implementation of the trainer.
 
-Платный Colab не гарантирует конкретную GPU и неизменные лимиты сессии. Поэтому каждый запуск начинается с проверки ресурсов и поддерживает восстановление после отключения. Выбор платного тарифа сам по себе не доказывает, что большая модель поместится в память. Эти ограничения подтверждены [официальным FAQ Colab](https://research.google.com/colaboratory/faq.html).
+Paid Colab does not guarantee a specific GPU or fixed session limits. Because of this, every run begins with a resource check and supports recovery after disconnection. Choosing a paid tier by itself does not prove that a large model will fit in memory. These constraints are confirmed by the [official Colab FAQ](https://research.google.com/colaboratory/faq.html).
 
-Этот план не запускает вычисления, не покупает ресурсы и не создаёт действующий notebook: соответствующие работы перечислены ниже.
+This plan itself does not run computations, purchase resources, or create a working notebook: the corresponding work items are listed below.
 
-## 2. Как отмечать выполнение
+## 2. How Completion Is Marked
 
-- `[x]` — результат существует и выполнены критерии приёмки.
-- `[ ]` — задача не завершена. В таблице дополнительно указываются «план», «в работе» или конкретная блокировка.
-- Задача закрывается после проверки, а не после написания кода.
-- При закрытии добавляются дата, пути к результатам, команда или отчёт проверки и оставшиеся ограничения.
-- Ссылки в поле «Результат» ниже обозначают будущие артефакты, если задача не отмечена выполненной.
+- `[x]` — the result exists and the acceptance criteria are met.
+- `[ ]` — the task is not complete. The table additionally notes "planned," "in progress," or a specific blocker.
+- A task is closed after verification, not after the code is written.
+- On closure, a date, paths to the results, the verification command or report, and any remaining limitations are added.
+- Links in the "Result" field below denote future artifacts when a task is not yet marked done.
 
-Порядок: документация → каркас и контракты → маленькие локальные тесты → подготовка Colab → проверка весов и данных → базовая оценка → обучающий пилот → восстановление → адаптация → сравнение качества. Независимые задачи можно выполнять параллельно, но запуск обучения запрещён до прохождения его зависимостей.
+Order: documentation → scaffolding and contracts → small local tests → Colab preparation → weights and data verification → baseline evaluation → training pilot → recovery → adaptation → quality comparison. Independent tasks can be executed in parallel, but launching training is prohibited until its dependencies are satisfied.
 
-## 3. Полный реестр
+## 3. Full Registry
 
-| Готово | ID | Задача | Среда | Зависимости | Статус |
+| Done | ID | Task | Environment | Dependencies | Status |
 |---|---|---|---|---|---|
-| [x] | A01 | Архитектура и технические контракты | Документы | — | Выполнено |
-| [x] | A02 | Спецификация Python и uv | Документы | A01 | Выполнено |
-| [x] | A03 | Единый план и разделение сред | Документы | A01, A02 | Выполнено |
-| [ ] | A04 | Зафиксировать входные решения и ресурсы | Локально / Colab preflight | A03 | Комплект/данные выбраны; T4 измерена, A100-профиль требует запуска |
-| [x] | A05 | Создать Python-пакет и uv-окружение | Локально | A02 | Выполнено |
-| [x] | A06 | Схемы конфигурации и запрет локального обучения | Локальные тесты | A05 | Выполнено |
-| [ ] | A07 | Контракт и загрузчик артефактов | Локальные тесты | A05, A06 | Pinned загрузчик реализован; GPU-проверка ожидается |
-| [x] | A08 | Аудиобуферы и временная сетка | Локальные тесты | A05, A06 | Выполнено |
-| [x] | A09 | Токены, маски и расписание задержек | Локальные тесты | A06 | Выполнено |
-| [ ] | A10 | Потоковый аудиокодек | Код локально, веса в Colab | A07, A08, A04 | Начальный кодек подключён; качество не проверено |
-| [ ] | A11 | Временной трансформер | Маленькие локальные тесты | A07, A09, A04 | Temporal backend подключён; модельные тесты ожидаются |
-| [ ] | A12 | Текстовая голова и depth-трансформер | Маленькие локальные тесты | A11 | Text/depth backend подключён; модельные тесты ожидаются |
-| [ ] | A13 | Генератор и изоляция сессий | Маленькие локальные тесты | A09, A10, A12 | Офлайн streaming loop и mocks готовы; полный прогон ожидается |
-| [ ] | A14 | Сервер и Python-клиент | Локально с тестовым движком | A08, A13 | Частично: двоичный протокол; сервер/клиент открыты |
-| [ ] | A15 | Инструменты оценки и набор сценариев | Локальные тесты | A06, A13 | Audio CE/perplexity реализованы; разговорная оценка открыта |
-| [ ] | A16 | Подготовить управляющий Colab notebook | Локально → Colab | A04, A05, A06 | Полный notebook готов локально; GPU-операции ещё не испытаны |
-| [ ] | A17 | Постоянное хранилище и доставка артефактов | Colab | A07, A16 | Checkpoint/Drive-путь реализован; удалённое восстановление ожидается |
-| [ ] | A18 | Датасет, разметка и разделение выборок | Малые проверки локально, обработка в Colab | A04, A09, A17 | Корпус чтения и splits реализованы; подготовка в Colab |
-| [ ] | A19 | Базовая модель: память и офлайн-качество | Colab | A13, A15, A16, A17 | План |
-| [ ] | A20 | Проверить живой full-duplex | Локальный клиент + удалённый тест | A14, A19 | План |
-| [ ] | A21 | Реализовать обучающий контур | Код и проверки локально | A06, A12, A18 | Ограниченный тренер/LoRA/resume реализованы; расширенная задача открыта |
-| [ ] | A22 | Короткий обучающий пилот | Только Colab | A19, A21, A17 | План |
-| [ ] | A23 | Доказать восстановление обучения | Только Colab | A22 | План |
-| [ ] | A24 | Первое направленное дообучение | Только Colab | A18, A20, A22, A23 | План |
-| [ ] | A25 | Оценить адаптацию и экспортировать модель | Colab | A24, A15 | План |
-| [ ] | A26 | Автоматические проверки и инструкции команды | Локально / CI без обучения | A05, A06, A09, A13, A16, A21 | План |
-| [ ] | A27 | Приёмка первой версии | Отчёты и повторный Colab запуск | A20, A25, A26 | План |
-| [ ] | A28 | Спланировать следующую итерацию качества | Анализ | A27 | План |
+| [x] | A01 | Architecture and technical contracts | Documents | — | Done |
+| [x] | A02 | Python and uv specification | Documents | A01 | Done |
+| [x] | A03 | Unified plan and environment separation | Documents | A01, A02 | Done |
+| [ ] | A04 | Input decisions and resources | Locally / Colab preflight | A03 | Bundle/data selected; T4 measured, A100 profile still needs to be run |
+| [x] | A05 | Python package and uv environment | Locally | A02 | Done |
+| [x] | A06 | Configuration schemas and local-training lockout | Local tests | A05 | Done |
+| [ ] | A07 | Artifact contract and loader | Local tests | A05, A06 | Pinned loader implemented; GPU verification pending |
+| [x] | A08 | Audio buffers and the time grid | Local tests | A05, A06 | Done |
+| [x] | A09 | Tokens, masks, and the delay schedule | Local tests | A06 | Done |
+| [ ] | A10 | Streaming audio codec | Code locally, weights in Colab | A07, A08, A04 | Initial codec wired in; quality not verified |
+| [ ] | A11 | Temporal transformer | Small local tests | A07, A09, A04 | Temporal backend wired in; model tests pending |
+| [ ] | A12 | Text head and depth transformer | Small local tests | A11 | Text/depth backend wired in; model tests pending |
+| [ ] | A13 | Generator and session isolation | Small local tests | A09, A10, A12 | Offline streaming loop and mocks ready; full run pending |
+| [ ] | A14 | Server and Python client | Locally with a test engine | A08, A13 | **Removed — out of scope:** the live server, Python client, and wire protocol were deleted from the codebase; current work is model-only |
+| [ ] | A15 | Evaluation tools and scenario set | Local tests | A06, A13 | Audio CE/perplexity implemented; conversational evaluation still open |
+| [ ] | A16 | Colab orchestration notebook | Locally → Colab | A04, A05, A06 | Full notebook ready locally; GPU operations not yet tested |
+| [ ] | A17 | Persistent storage and artifact delivery | Colab | A07, A16 | Checkpoint/Drive path implemented; remote recovery pending |
+| [ ] | A18 | Dataset, annotation, and split creation | Small checks locally, processing in Colab | A04, A09, A17 | Reading corpus and splits implemented; preparation in Colab pending |
+| [ ] | A19 | Baseline model: memory and offline quality | Colab | A13, A15, A16, A17 | Planned |
+| [ ] | A20 | Live full-duplex verification | Local client + remote test | A14, A19 | **On hold / blocked:** depends on A14, whose server/client were removed; blocked pending a decision to reintroduce a live serving component |
+| [ ] | A21 | Training loop implementation | Code and checks locally | A06, A12, A18 | Limited trainer/LoRA/resume implemented; extended scope still open |
+| [ ] | A22 | Short training pilot | Colab only | A19, A21, A17 | Planned |
+| [ ] | A23 | Training recovery proof | Colab only | A22 | Planned |
+| [ ] | A24 | First targeted fine-tuning | Colab only | A18, A20, A22, A23 | Planned (inherits A20's blocked dependency — see the note under A20) |
+| [ ] | A25 | Evaluating the adaptation and exporting the model | Colab | A24, A15 | Planned |
+| [ ] | A26 | Automated checks and team instructions | Locally / CI without training | A05, A06, A09, A13, A16, A21 | Planned |
+| [ ] | A27 | First-version acceptance | Reports and a repeat Colab run | A20, A25, A26 | Planned (inherits A20's blocked dependency — see the note under A20) |
+| [ ] | A28 | Planning the next quality iteration | Analysis | A27 | Planned |
 
-## 4. Выполненная основа
+## 4. Completed Foundation
 
-### A01 — архитектура и технические контракты
+### A01 — Architecture and technical contracts
 
-**Цель:** описать систему до реализации.
+**Goal:** describe the system before implementation.
 
-**Что выполнено:** выделены аудиокодек, временная модель, текст и аудиогенерация; определены начальные формы тензоров, порядок каналов, runtime, формат данных и критерии проверки. Неподтверждённые параметры отмечены отдельно.
+**What was done:** the audio codec, temporal model, text, and audio generation were separated out; initial tensor shapes, channel order, runtime, data format, and verification criteria were defined. Unconfirmed parameters are flagged separately.
 
-**Результат:** [architecture.md](architecture.md), [model.md](model.md), [runtime.md](runtime.md), [training.md](training.md), [validation.md](validation.md), [specification.md](specification.md).
+**Result:** [architecture.md](architecture.md), [model.md](model.md), [runtime.md](runtime.md), [training.md](training.md), [validation.md](validation.md), [specification.md](specification.md).
 
-**Приёмка:** документы присутствуют, внутренние ссылки проверены. Выполнено 2026-09-16. Это готовность документации, не доказательство обученной модели или совместимости конкретных весов.
+**Acceptance:** the documents are present, internal links have been checked. Done 2026-09-16. This reflects documentation readiness, not proof of a trained model or compatibility with specific weights.
 
-### A02 — спецификация Python и uv
+### A02 — Python and uv specification
 
-**Что выполнено:** выбран Python/uv, описаны пакет `src/aether`, группы зависимостей, CLI, проверки и воспроизводимость.
+**What was done:** Python/uv was selected; the `src/aether` package, dependency groups, CLI, checks, and reproducibility are described.
 
-**Результат:** [development.md](development.md).
+**Result:** [development.md](development.md).
 
-**Приёмка:** стек согласован в документации. Выполнено 2026-09-16. Создание пакета, lock-файла и окружения выполнено отдельно в A05.
+**Acceptance:** the stack is agreed in the documentation. Done 2026-09-16. Creating the package, lock file, and environment was done separately in A05.
 
-### A03 — единый план и разделение сред
+### A03 — Unified plan and environment separation
 
-**Что выполнено:** документация разложена на задачи, для каждой определены действия, результат и проверка. Обучение и все тесты с обновлением параметров отнесены к удалённому Colab runtime.
+**What was done:** the documentation was broken down into tasks; for each one, actions, results, and verification are defined. Training and all tests that update parameters are assigned to the remote Colab runtime.
 
-**Результат:** этот документ и обновлённые правила среды в документации.
+**Result:** this document and the updated environment rules in the documentation.
 
-**Приёмка:** есть полный реестр, зависимости и критерии, нет отметок о несуществующих реализациях. Выполнено 2026-09-16.
+**Acceptance:** a full registry with dependencies and criteria exists; there are no markings for implementations that do not exist. Done 2026-09-16.
 
-## 5. План реализации
+## 5. Implementation Plan
 
-### A04 — входные решения и ресурсы
+### A04 — Input decisions and resources
 
-**Частичное решение 2026-09-16:** для первого рабочего результата остаётся начальный кодек. В дальнейшем — кодек Manifestro; его технические параметры пока неизвестны. Назначение реализации отделено от версионированного контракта токенов. Замена потребует проверки частоты кадров, книг, словарей, размерности и семантики токенов; возможны адаптация/переобучение голосовой модели и пересоздание токенизированных данных. Это не закрывает A04: веса, данные и фактические ресурсы GPU остаются открытыми. Язык, сценарий, хранилище и бюджет уточнены ниже.
+**Partial decision, 2026-09-16:** the initial codec remains in place for the first working result. The Manifestro codec is planned for later; its technical parameters are not yet known. The implementation assignment is kept separate from the versioned token contract. A swap will require checking frame rate, codebooks, vocabularies, dimensionality, and token semantics; it may require adapting/retraining the voice model and recreating tokenized data. This does not close A04: weights, data, and actual GPU resources remain open. Language, scenario, storage, and budget are specified below.
 
-**Цель:** устранить неизвестные, от которых зависят веса, память и обучение.
+**Goal:** eliminate the unknowns that weights, memory, and training depend on.
 
-**Действия:**
-1. Зафиксировать язык первого результата и класс задач, на котором будем оценивать ответы.
-2. Выбрать совместимый комплект весов, токенизатор и конфигурации; перечислить недостающие параметры.
-3. В Colab проверить фактически выделенную GPU, VRAM, RAM и диск без запуска обучения.
-4. Зафиксировать доступный объём данных, предел шагов/времени эксперимента и постоянное хранилище.
-5. Выбрать первый режим адаптации; LoRA рассмотреть как стартовый кандидат, а не гарантию размещения в памяти.
+**Actions:**
+1. The language of the first result and the task class used to evaluate responses are recorded.
+2. A compatible weights bundle, tokenizer, and configurations are selected; missing parameters are listed.
+3. In Colab, the actually allocated GPU, VRAM, RAM, and disk are checked without starting training.
+4. The available data volume, the experiment's step/time limit, and persistent storage are recorded.
+5. A first adaptation mode is selected; LoRA is treated as a starting candidate, not a guarantee of fitting in memory.
 
-**Как будет выглядеть:** `configs/experiment/base.json` и заполненная таблица ресурсов в отчёте preflight. Для каждого неизвестного — явный статус, без выдуманного объёма VRAM или обещания конкретной GPU.
+**What it looks like:** `configs/experiment/base.json` and a filled-in resource table in the preflight report. Each unknown has an explicit status, with no invented VRAM figure or promise of a specific GPU.
 
-**Готово, когда:** команда может определить допустимую конфигурацию или конкретную причину, почему запуск пока невозможен. Решения фиксируются до загрузки большого корпуса.
+**Done when:** the team can determine a viable configuration, or a specific reason why a run is not yet possible. Decisions are recorded before a large corpus is loaded.
 
-**Решения пользователя 2026-09-16:** язык первого baseline — английский; сценарий — разговорный чат-бот для демо; постоянное хранилище — Google Drive; бюджет первой стадии — 500 юнитов. Бюджет не означает разрешение автоматически запускать платные вычисления. Фактическая доступность юнитов, расход на выделенной GPU, предел времени и память проверяются в будущем Colab preflight. Неизвестны совместимый комплект весов/токенизатор, полный конфиг архитектуры и данные. `configs/experiment/base.json` пока не создаётся как исполняемый конфиг с выдуманными весами.
+**User decisions, 2026-09-16:** the first baseline's language is English; the scenario is a conversational chatbot for a demo; persistent storage is Google Drive; the first-stage budget is 500 units. The budget does not authorize automatically launching paid compute. Actual unit availability, consumption on the allocated GPU, time limits, and memory are checked in a future Colab preflight. A compatible weights/tokenizer bundle, a full architecture config, and data remain unknown. `configs/experiment/base.json` is not yet created as an executable config with invented weights.
 
-### A05 — Python-пакет и uv
+### A05 — Python package and uv environment
 
-**Действия:**
-1. Создать `pyproject.toml`, `.python-version`, `src/aether`, CLI и `.gitignore`.
-2. Определить группы `dev`, `audio`, `train`; разрешить зависимости и сохранить `uv.lock`.
-3. Проверить установку в чистое окружение и вывод `uv run --locked aether --help`.
-4. Создать маленькую тестовую конфигурацию, не скачивающую большие веса.
+**Actions:**
+1. `pyproject.toml`, `.python-version`, `src/aether`, the CLI, and `.gitignore` are created.
+2. The `dev`, `audio`, and `train` groups are defined; dependencies are resolved and `uv.lock` is saved.
+3. Installation into a clean environment and the output of `uv run --locked aether --help` are checked.
+4. A small test configuration that does not download large weights is created.
 
-**Как будет выглядеть:** устанавливаемый пакет с командами `inspect`, `infer`, `serve`, `talk`, `evaluate`, `train`; незавершённые команды завершаются с понятным сообщением, не изображая работающую модель.
+**What it looks like:** an installable package with the `inspect`, `infer`, `serve`, `talk`, `evaluate`, `train` commands; incomplete commands terminate with a clear message rather than simulating a working model.
 
-**Готово, когда:** импорт, CLI, форматирование и минимальные тесты проходят через uv. Никакое обучение в рамках задачи не запускается.
+**Done when:** import, CLI, formatting, and minimal tests pass through uv. No training is launched as part of this task.
 
-**Выполнено 2026-09-16:** созданы `pyproject.toml`, `uv.lock`, `.python-version` (3.12.14), `.gitignore`, `src/aether`, `configs/model/tiny.json` и интеграционные тесты CLI. В новом `.venv` установлены пакет и dev-инструменты. Проверены установленная команда, справка, отказ незавершённых операций без записи файлов и блокировка обучения: 6 тестов проходят. Ruff и mypy проверены. Независимый read-only review субагента не выявил блокирующих дефектов A05.
+**Done 2026-09-16:** `pyproject.toml`, `uv.lock`, `.python-version` (3.12.14), `.gitignore`, `src/aether`, `configs/model/tiny.json`, and CLI integration tests were created. The package and dev tools were installed into a fresh `.venv`. The installed command, help output, the refusal of incomplete operations without writing files, and the training lockout were checked: 6 tests pass. Ruff and mypy were checked. An independent read-only review by a subagent found no blocking defects in A05.
 
-**Ограничения:** это каркас, не голосовая модель. Группа `train` намеренно пуста до preflight Colab. Рабочие операции ещё не реализованы; `train` запрещён безусловно. `tiny.json` — синтетическая заготовка; схема уточняется в A06.
+**Limitations:** this is scaffolding, not a voice model. The `train` group is deliberately empty until the Colab preflight. Working operations are not yet implemented; `train` is unconditionally blocked. `tiny.json` is a synthetic placeholder; the schema is refined in A06.
 
-### A06 — конфигурации и защита среды
+### A06 — Configurations and environment protection
 
-**Действия:**
-1. Ввести валидируемые схемы модели, runtime, данных и обучения.
-2. Разделить профили `local_test` и `colab_train`; по умолчанию разрешён только первый.
-3. Перед созданием optimizer проверять профиль, явное разрешение обучения и признаки удалённого Colab runtime. Один флаг не считается достаточной защитой.
-4. Сделать `train --validate-only`, который проверяет конфигурацию без trainer, optimizer и обучающего цикла.
-5. Проверить через mock, что локальный отказ происходит до загрузки больших весов и доступа к optimizer.
+**Actions:**
+1. Validated schemas for the model, runtime, data, and training are introduced.
+2. The `local_test` and `colab_train` profiles are separated; only the former is allowed by default.
+3. Before optimizer creation, the profile, an explicit training authorization, and signs of a remote Colab runtime are checked. A single flag is not considered sufficient protection.
+4. `train --validate-only` is implemented, checking the configuration without a trainer, optimizer, or training loop.
+5. A mock test verifies that the local refusal happens before large weights are loaded and before the optimizer is accessed.
 
-**Как будет выглядеть:** локальный `train` выдаёт `TRAINING_ENVIRONMENT_REQUIRED` с указанием notebook. Конфигурации имеют версии и запрещают неизвестные поля.
+**What it looks like:** local `train` raises `TRAINING_ENVIRONMENT_REQUIRED`, pointing to the notebook. Configurations are versioned and reject unknown fields.
 
-**Готово, когда:** все точки входа в тренер используют одну проверку; `--validate-only` работает локально; тест не выполняет ни одного обновления весов. Такая проверка — защита от ошибки, а не механизм против намеренной подмены окружения.
+**Done when:** all trainer entry points use a single check; `--validate-only` works locally; the test performs zero weight updates. This check is a safeguard against mistakes, not a mechanism against a deliberately spoofed environment.
 
-**Подготовлено при review A05:** строгие типы, запрет неизвестных вложенных полей, конечность чисел, проверка width/heads и delays. BOS tiny-модели определяется её словарями. Нужны явные лимиты tiny-размеров и резерв контекста. Validation-only не импортирует backend. До проверки реальных признаков управляемого Colab runtime обучающий путь остаётся закрытым. Эти требования проверены в A06 (см. ниже).
+**Prepared during the A05 review:** strict types, a ban on unknown nested fields, finiteness of numbers, and width/heads/delays checks. The tiny model's BOS is determined by its vocabularies. Explicit tiny-size limits and a context reserve are needed. Validation-only does not import the backend. Until real signs of a managed Colab runtime are checked, the training path remains blocked. These requirements are verified in A06 (see below).
 
-**Выполнено 2026-09-16:** `src/aether/config/__init__.py`, `src/aether/training_gate.py`, CLI validation-only и обновлённый `configs/model/tiny.json`. Pydantic strict/extra forbid, версия 1, конечные числа, размеры, heads, 17 каналов, BOS по словарям, явные tiny-лимиты и резервы контекста. Добавлен версионированный контракт кодека и интерфейс `src/aether/codec.py`. Проверка JSON не импортирует backend, не пишет файлы и не обращается к сети (аудит в отдельном процессе).
+**Done 2026-09-16:** `src/aether/config/__init__.py`, `src/aether/training_gate.py`, the CLI validation-only path, and an updated `configs/model/tiny.json`. Pydantic strict/extra-forbid, version 1, finite numbers, sizes, heads, 17 channels, vocabulary-based BOS, explicit tiny limits, and context reserves. A versioned codec contract and the `src/aether/codec.py` interface were added. The JSON check does not import the backend, does not write files, and does not touch the network (audited in a separate process).
 
-**Проверки:** `uv run --locked pytest` — 37 тестов вместе с A09; `uv run --locked ruff check .`, `uv run --locked ruff format --check .`, `uv run --locked mypy src/aether`. Mock-тест подтверждает отказ до весов/optimizer при локальном и заявленном Colab-профиле. Обновления параметров не выполнялись.
+**Checks:** `uv run --locked pytest` — 37 tests together with A09; `uv run --locked ruff check .`, `uv run --locked ruff format --check .`, `uv run --locked mypy src/aether`. A mock test confirms the refusal happens before weights/optimizer under both the local and the claimed-Colab profile. No parameter updates were performed.
 
-**Исторические ограничения на 2026-09-16 (заменены реализацией ниже):** backend/тренера не было. Общая проверка среды намеренно всегда отказывает: реальные признаки управляемого удалённого Colab и платный тариф ещё не проверены. Validation-only подтверждает схему, а не возможность обучения. Будущие точки входа тренера обязаны вызывать эту проверку до backend. Подробнее: [configuration.md](configuration.md).
+**Historical limitations as of 2026-09-16 (superseded by the implementation above):** there was no backend/trainer. The overall environment check deliberately always refuses: real signs of a managed remote Colab and a paid tier had not yet been checked. Validation-only confirms the schema, not the ability to train. Future trainer entry points are required to call this check before the backend. Details: [configuration.md](configuration.md).
 
-### A07 — артефакты и загрузчик
+### A07 — Artifacts and loader
 
-**Действия:**
-1. Описать manifest: имена файлов, SHA-256, версия схемы, dtype, словари, происхождение и версионированный контракт кодека, совпадающий с конфигурацией.
-2. Реализовать проверку наличия, целостности и совпадения конфигураций.
-3. Реализовать строгую загрузку параметров и отдельный путь версионированного преобразования layout при необходимости.
-4. Локально проверить маленькие искусственные веса, повреждённый файл и несовместимую форму.
+**Actions:**
+1. The manifest is specified: file names, SHA-256, schema version, dtype, vocabularies, provenance, and a versioned codec contract matching the configuration.
+2. Checks for presence, integrity, and configuration match are implemented.
+3. Strict parameter loading and a separate, versioned layout-conversion path are implemented where needed.
+4. Small synthetic weights, a corrupted file, and an incompatible shape are checked locally.
 
-**Как будет выглядеть:** `aether inspect` выдаёт таблицу проверок и завершает работу с ненулевым кодом при несовместимости.
+**What it looks like:** `aether inspect` prints a table of checks and exits with a non-zero code on incompatibility.
 
-**Готово, когда:** неполный комплект не принимается молча; большие реальные веса проверяются позже в Colab.
+**Done when:** an incomplete bundle is not silently accepted; large real weights are checked later in Colab.
 
-**Частично реализовано 2026-09-16:** `src/aether/artifacts.py`, `aether inspect --config ... --manifest ...`, `tests/unit/test_artifacts.py`; контракт описан в [artifacts.md](artifacts.md). Проверяются версия, происхождение, размеры/SHA-256, пути, полное совпадение конфигурации и кодека, точные имена/shape/dtype синтетических параметров. Загрузчик вызывает mock-адаптер только после всех проверок. Проверены повреждение, отсутствующий файл, несовместимая форма, лишние параметры, NaN, неподдерживаемый layout и CLI.
+**Partially implemented, 2026-09-16:** `src/aether/artifacts.py`, `aether inspect --config ... --manifest ...`, `tests/unit/test_artifacts.py`; the contract is described in [artifacts.md](artifacts.md). Version, provenance, sizes/SHA-256, paths, full configuration and codec match, and exact names/shapes/dtypes of synthetic parameters are checked. The loader calls the mock adapter only after all checks pass. Corruption, a missing file, an incompatible shape, extra parameters, NaN, an unsupported layout, and the CLI were checked.
 
-**A07 остаётся открытой:** полного backend/state_dict и семантической проверки реального токенизатора нет. Не выбран полный комплект весов/архитектурных параметров (A04). Не реализован конвертер неизвестных layout: они отклоняются. Реальные веса локально не загружаются.
+**A07 remains open:** there is no full backend/state_dict or semantic verification of a real tokenizer. A full weights/architecture-parameter bundle has not been chosen (A04). A converter for unknown layouts is not implemented: they are rejected. Real weights are not loaded locally.
 
-### A08 — аудиобуферы
+### A08 — Audio buffers
 
-**Действия:**
-1. Реализовать mono float32 PCM, проверку значений и преобразование частоты.
-2. Накопление пакетов отделить от кадров по 1920 отсчётов.
-3. Ввести счётчики, ограничение очередей, reset и правила неполного хвоста.
-4. Проверить случайные границы пакетов и сохранение числа отсчётов на синтетическом сигнале.
+**Actions:**
+1. Mono float32 PCM, value validation, and sample-rate conversion are implemented.
+2. Packet accumulation is kept separate from 1920-sample frames.
+3. Counters, bounded queues, reset, and rules for an incomplete tail are introduced.
+4. Random packet boundaries and sample-count preservation are checked on a synthetic signal.
 
-**Как будет выглядеть:** `audio/` отдаёт одинаковые кадры независимо от сетевого разбиения; тесты показывают корректное переполнение и очистку.
+**What it looks like:** `audio/` produces identical frames regardless of network packet boundaries; tests show correct overflow handling and cleanup.
 
-**Готово, когда:** нет потерь, перестановки и бесконечного роста памяти; тишина отличается от отсутствия пакетов.
+**Done when:** there is no loss, reordering, or unbounded memory growth; silence is distinguished from the absence of packets.
 
-**Выполнено 2026-09-16:** `src/aether/audio/__init__.py`, `tests/unit/test_audio.py`, [audio.md](audio.md). PCM float32 little-endian, проверка значений, кадры 1920 отсчётов, bounded queue, атомарный отказ при переполнении, счётчики, reset, хвост с явным padding/discard. Офлайн-преобразование частоты оконным sinc с антиалиасингом; потоковый ресемплер не заявляется. Проверены случайные границы пакетов, отсутствие потерь/перестановки, независимость буферов, тишина против отсутствия, длина и частотный отклик синтетических сигналов.
+**Done 2026-09-16:** `src/aether/audio/__init__.py`, `tests/unit/test_audio.py`, [audio.md](audio.md). Little-endian float32 PCM, value validation, 1920-sample frames, a bounded queue, atomic failure on overflow, counters, reset, and a tail with explicit padding/discard. Offline sample-rate conversion uses windowed-sinc with anti-aliasing; a streaming resampler is not claimed. Random packet boundaries, absence of loss/reordering, buffer independence, silence versus absence, length, and the frequency response of synthetic signals were checked.
 
-**Проверки A07/A08:** общий прогон `uv run --locked pytest` — 70 тестов; `uv run --locked ruff check .`, `uv run --locked ruff format --check .`, `uv run --locked mypy src/aether`. Все прошли; backend, реальные веса, микрофон и optimizer не запускались.
+**A07/A08 checks:** a combined `uv run --locked pytest` run — 70 tests; `uv run --locked ruff check .`, `uv run --locked ruff format --check .`, `uv run --locked mypy src/aether`. All passed; the backend, real weights, a microphone, and the optimizer were not run.
 
-### A09 — токены и временное выравнивание
+### A09 — Tokens and temporal alignment
 
-**Действия:**
-1. Описать 17 каналов, специальные значения, маски и задержки в одной схеме.
-2. Реализовать сдвиг, начальные позиции и обратную сборку физического кадра.
-3. Использовать уникальные искусственные индексы кадров для проверки off-by-one.
-4. Проверить, что служебные значения не доходят до декодера и не входят в loss.
+**Actions:**
+1. The 17 channels, special values, masks, and delays are specified in a single schema.
+2. The shift, initial positions, and reassembly of the physical frame are implemented.
+3. Unique synthetic frame indices are used to check for off-by-one errors.
+4. It is checked that sentinel values never reach the decoder and never enter the loss.
 
-**Как будет выглядеть:** общий модуль расписания для training и inference; тестовая таблица соответствия входного и выходного времени.
+**What it looks like:** a shared schedule module for training and inference; a test table mapping input to output timing.
 
-**Готово, когда:** обратное преобразование восстанавливает все валидные позиции и одинаково работает на последовательности и на отдельных шагах.
+**Done when:** the inverse transform recovers all valid positions and behaves identically on a full sequence and on individual steps.
 
-**Выполнено 2026-09-16:** `src/aether/tokens.py`, `tests/unit/test_tokens.py`. Общая схема задержек, BOS, разные missing/pending sentinels, lookup/loss-маски, пакетный сдвиг, ограниченное состояние пошагового сдвига и обратной сборки, явный flush/reset. Служебные значения отклоняются перед декодером; пользовательские каналы не входят в loss предсказания собственного голоса. Уникальные номера кадров доказывают отсутствие off-by-one и совпадение batch/stream. Проверено в общем прогоне 37 тестов, Ruff и mypy. Проверка относится к дискретному расписанию, не к будущему tensor backend или качеству модели.
+**Done 2026-09-16:** `src/aether/tokens.py`, `tests/unit/test_tokens.py`. A shared delay schedule, BOS, distinct missing/pending sentinels, lookup/loss masks, batched shifting, bounded state for the step-by-step shift and reassembly, and an explicit flush/reset. Sentinel values are rejected before the decoder; user channels do not enter the loss for the model's own voice prediction. Unique frame numbers prove the absence of off-by-one errors and the match between batch and stream modes. Verified in the combined run of 37 tests, Ruff, and mypy. This verification covers the discrete schedule, not a future tensor backend or model quality.
 
-### A10 — потоковый кодек
+### A10 — Streaming codec
 
-**Действия:**
-1. Реализовать encoder, quantizer и decoder по зафиксированной конфигурации.
-2. Отделить веса от encoder/decoder state каждой сессии.
-3. Проверить формы и границы чанков на маленьких локальных фикстурах.
-4. В Colab загрузить реальные веса и сравнить восстановление речи, тишины и шума.
+**Actions:**
+1. The encoder, quantizer, and decoder are implemented per the fixed configuration.
+2. Weights are kept separate from each session's encoder/decoder state.
+3. Shapes and chunk boundaries are checked on small local fixtures.
+4. In Colab, real weights are loaded and reconstruction of speech, silence, and noise is compared.
 
-**Как будет выглядеть:** `AudioCodec.encode/decode/reset`, отчёт сравнения исходного и восстановленного звука, аудиопримеры из разрешённого тестового набора.
+**What it looks like:** `AudioCodec.encode/decode/reset`, a comparison report between original and reconstructed audio, and audio samples from the approved test set.
 
-**Готово, когда:** кодек проходит потоковые проверки и даёт разборчивую речь без регулярных стыков между кадрами. Обучение кодека с нуля не входит в эту задачу.
+**Done when:** the codec passes streaming checks and produces intelligible speech without regular seams between frames. Training the codec from scratch is out of scope for this task.
 
-### A11 — временной трансформер
+### A11 — Temporal transformer
 
-**Действия:**
-1. Собрать эмбеддинги потоков, causal attention, позиции, нормализацию и FFN по полному конфигу.
-2. Реализовать KV-кеш, ограничение контекста и reset.
-3. Проверить причинность изменением будущих входов.
-4. Сравнить batch и teacher-forced streaming на маленькой сети без обучения.
+**Actions:**
+1. Stream embeddings, causal attention, positions, normalization, and the FFN are assembled per the full configuration.
+2. A KV cache, a context limit, and reset are implemented.
+3. Causality is checked by perturbing future inputs.
+4. Batch mode and teacher-forced streaming are compared on a small, untrained network.
 
-**Как будет выглядеть:** `TemporalModel` с документированными shapes, состоянием и допусками численного сравнения.
+**What it looks like:** `TemporalModel` with documented shapes, state, and numerical-comparison tolerances.
 
-**Готово, когда:** будущие данные не меняют прошлые выходы, кеш не смешивает сессии, forward-сравнение проходит.
+**Done when:** future data does not change past outputs, the cache does not mix sessions, and the forward comparison passes.
 
-### A12 — текст и аудиокоды
+### A12 — Text and audio codes
 
-**Действия:**
-1. Добавить текстовую выходную голову и маски специальных токенов.
-2. Реализовать восемь шагов depth с нужными проекциями и весами по книге.
-3. Ввести независимые sampling-настройки текста и аудио.
-4. Проверить сброс depth-кеша между временными шагами и детерминированный greedy-режим.
+**Actions:**
+1. A text output head and special-token masks are added.
+2. Eight depth steps are implemented with the required projections and per-codebook weights.
+3. Independent sampling settings for text and audio are introduced.
+4. Resetting the depth cache between time steps and deterministic greedy mode are checked.
 
-**Как будет выглядеть:** один временной шаг порождает текст и восемь аудиокодов в сдвинутом пространстве; выходные logits имеют формы из `model.md`.
+**What it looks like:** a single time step produces text and eight audio codes in the shifted space; the output logits have the shapes given in `model.md`.
 
-**Готово, когда:** корректны формы, порядок обусловливания, диапазоны токенов и обработка нечисловых logits.
+**Done when:** shapes, conditioning order, token ranges, and handling of non-finite logits are all correct.
 
-### A13 — генератор и сессии
+### A13 — Generator and sessions
 
-**Действия:**
-1. Объединить кодек, расписание, temporal, depth и обратную сборку.
-2. Создать явный объект состояния: кеши, RNG, offsets и очереди.
-3. Реализовать старт, шаг, ожидание первого полного кадра и закрытие.
-4. Чередовать две маленькие тестовые сессии и сравнить с их независимым выполнением.
+**Actions:**
+1. The codec, the schedule, temporal, depth, and reassembly are combined.
+2. An explicit state object is created: caches, RNG, offsets, and queues.
+3. Start, step, waiting for the first complete frame, and shutdown are implemented.
+4. Two small test sessions are interleaved and compared against running them independently.
 
-**Как будет выглядеть:** `DialogueEngine.step` возвращает `None` при заполнении задержек, затем выровненный результат; повторное подключение начинается с чистого состояния.
+**What it looks like:** `DialogueEngine.step` returns `None` while delays are filling, then an aligned result; reconnecting starts from clean state.
 
-**Готово, когда:** потоковый loop проходит ограниченный синтетический тест без утечек и межсессионного контекста. Полное качество проверяется в A19.
+**Done when:** the streaming loop passes a bounded synthetic test with no leaks and no cross-session context. Full quality is verified in A19.
 
-### A14 — сервер и клиент
+### A14 — Server and client
 
-**Действия:**
-1. Реализовать версионированный WebSocket протокол из `runtime.md`.
-2. Добавить ready/live, один активный разговор, лимиты пакетов и сообщения ошибок.
-3. Создать Python-клиент с независимыми очередями записи и воспроизведения; callback не вызывает модель.
-4. Локально проверить mock-движок, disconnect, BUSY, overload и stop.
+**Actions:**
+1. A versioned WebSocket protocol from `runtime.md` is implemented.
+2. Ready/live states, a single active conversation, packet limits, and error messages are added.
+3. A Python client is created with independent capture and playback queues; the callback does not call the model.
+4. A mock engine, disconnect, BUSY, overload, and stop are checked locally.
 
-**Как будет выглядеть:** терминальный клиент показывает состояние соединения и текст; синтетическое аудио передаётся двунаправленно. Микрофон используется только в явно запущенном тесте.
+**What it looks like:** a terminal client shows connection state and text; synthetic audio is transmitted bidirectionally. The microphone is used only in an explicitly launched test.
 
-**Готово, когда:** сетевой и звуковой контур работает без полной модели, обработчики не зависают, все очереди ограничены.
+**Done when:** the network and audio loop works without the full model, handlers never hang, and all queues are bounded.
 
-**Независимая часть реализована 2026-09-16:** `src/aether/protocol.py` — бинарный пакет v1, точная длина заголовка/payload, диапазоны счётчиков, PCM validation и отдельные последовательности по направлению/сессии. 10 тестов проверяют wire layout, потерю/дублирование/offset, повреждения и максимальный пакет. WebSocket сервер, ready/live, клиент и mock engine ещё не реализованы; A14 остаётся открытой.
+**Independently implemented part, 2026-09-16:** `src/aether/protocol.py` — the v1 binary packet, exact header/payload lengths, counter ranges, PCM validation, and separate per-direction/per-session sequence numbers. 10 tests verify the wire layout, loss/duplication/offset handling, corruption, and the maximum packet size. The WebSocket server, ready/live states, the client, and the mock engine were not implemented; A14 remained open.
 
-### A15 — оценка
+**Closing note (this documentation revision):** the `server.py`, `client.py`, and `protocol.py` source files described above, their tests, the `serve`/`talk` CLI commands, and the `aiohttp`/`sounddevice` dependencies were removed from the codebase in this documentation pass. This was a deliberate decision to narrow the project's scope to the dialogue model/generator itself rather than a live serving product; the historical record above is kept for reference, but none of that code currently exists in the repository. **Status: Removed — out of scope.**
 
-**Действия:**
-1. Создать формат сценария с ожидаемыми событиями и разметкой времени.
-2. Составить не менее 100 сценариев по категориям из `validation.md`.
-3. Реализовать метрики времени, очередей, содержания и аудио; автоматическую оценку дополнять ручной.
-4. Сформировать единый отчёт с конфигурацией, seed, объёмом выборки и ошибками.
+### A15 — Evaluation
 
-**Как будет выглядеть:** JSON с измерениями и Markdown-отчёт; локально формат проверяется на фикстурах, настоящие результаты получаются в Colab.
+**Actions:**
+1. A scenario format with expected events and time annotations is created.
+2. At least 100 scenarios are composed across the categories in `validation.md`.
+3. Timing, queueing, content, and audio metrics are implemented; automated evaluation is supplemented with manual review.
+4. A unified report is produced with configuration, seed, sample size, and errors.
 
-**Готово, когда:** baseline и кандидат можно сравнить на одних входах и нескольких seed, а неизвестные результаты не подставляются нулями.
+**What it looks like:** JSON with measurements and a Markdown report; locally the format is checked against fixtures, real results are obtained in Colab.
 
-### A16 — управляющий notebook Colab
+**Done when:** the baseline and a candidate can be compared on the same inputs and multiple seeds, and unknown results are never substituted with zeros.
 
-**Действия:**
-1. Создать `notebooks/aether_colab.ipynb` без секретов и сохранённых тяжёлых outputs.
-2. Разбить на ячейки: настройки → preflight → получение точной версии кода → uv sync → хранилище → проверка артефактов → baseline → pilot → resume → train → evaluate → export.
-3. Обучающие секции по умолчанию выключить параметром `RUN_TRAINING = False`; выполнение всех ячеек при значении False не запускает optimizer.
-4. Python-процессы пакета запускать через `uv run --locked` в отдельной `.venv`. Не предполагать, что ядро notebook автоматически использует это окружение.
-5. Системное ядро использовать для виджетов, авторизации хранилища и отображения результатов; численные вычисления — в процессе пакета.
-6. В свежем Colab runtime проверить setup и validation-only, записать версии и вывод.
+### A16 — Colab orchestration notebook
 
-**Как будет выглядеть:** ноутбук с понятными секциями, таблицей GPU/VRAM, выбранным run ID и ссылками на артефакты. Повторный запуск setup безопасен и не перезаписывает завершённый опыт.
+**Actions:**
+1. `notebooks/aether_colab.ipynb` is created with no secrets and no saved heavy outputs.
+2. It is split into cells: settings → preflight → fetching the exact code version → uv sync → storage → artifact verification → baseline → pilot → resume → train → evaluate → export.
+3. Training sections are disabled by default via `RUN_TRAINING = False`; running all cells with this value set to False never triggers the optimizer.
+4. The package's Python processes are run through `uv run --locked` in a separate `.venv`. The notebook kernel is not assumed to use this environment automatically.
+5. The system kernel is used for widgets, storage authorization, and displaying results; numerical computation happens in the package's own process.
+6. In a fresh Colab runtime, setup and validation-only are checked, and versions and output are recorded.
 
-**Готово, когда:** notebook можно открыть в платном Colab и последовательно подготовить воспроизводимое окружение. Локально проверяется только JSON/структура и компиляция обычных Python-ячеек; GPU-ячейки здесь не исполняются.
+**What it looks like:** a notebook with clear sections, a GPU/VRAM table, a chosen run ID, and links to artifacts. Rerunning setup is safe and does not overwrite a completed run.
 
-**Подготовлено локально 2026-09-16:** `notebooks/aether_colab.ipynb`, `src/aether/preflight.py`, `scripts/build_colab_bundle.py`, [colab.md](colab.md). Notebook получает точный архив незакоммиченных исходников по SHA-256, выполняет uv sync/validation-only, собирает ресурсы отдельным процессом и сохраняет отчёт в новый run на Drive. Наблюдения среды не выдаются за доказательство удалённости/платного тарифа. RUN_TRAINING=False; модельные и обучающие разделы явно заблокированы. A16 открыта до проверки в свежем Colab; локально GPU-ячейки не исполнялись.
+**Done when:** the notebook can be opened in paid Colab and sequentially prepare a reproducible environment. Locally, only the JSON/structure and the compilation of ordinary Python cells are checked; GPU cells are not executed here.
 
-### A17 — постоянное хранилище
+**Prepared locally, 2026-09-16:** `notebooks/aether_colab.ipynb`, `src/aether/preflight.py`, `scripts/build_colab_bundle.py`, [colab.md](colab.md). The notebook fetches an exact SHA-256-addressed archive of uncommitted sources, runs uv sync/validation-only, gathers resource information in a separate process, and saves a report into a new run on Drive. Environment observations are not presented as proof of remoteness or of a paid tier. RUN_TRAINING=False; the model and training sections are explicitly blocked. A16 remains open until verified in a fresh Colab; GPU cells were not executed locally.
 
-**Действия:**
-1. Начать с Google Drive как предлагаемого постоянного хранилища; путь задавать параметром notebook.
-2. Разделить `datasets/`, `bundles/`, `runs/<run_id>/`, `exports/`.
-3. Рабочие файлы копировать на диск Colab VM и проверять хэши. Во время обучения не читать тысячи мелких примеров прямо с подключённого Drive.
-4. Checkpoint сначала полностью записывать на VM, затем копировать в новый каталог постоянного хранилища; проверять размер и хэш, после этого публиковать маркер завершённости.
-5. Resume выбирает только подтверждённые checkpoint; последний исправный не удаляется до проверки нового.
+### A17 — Persistent storage
 
-**Как будет выглядеть:** после удаления Colab runtime остаются manifest, метрики и завершённые checkpoint; новый runtime может их восстановить.
+**Actions:**
+1. Google Drive is used as the proposed persistent storage to start; the path is set via a notebook parameter.
+2. `datasets/`, `bundles/`, `runs/<run_id>/`, and `exports/` are kept separate.
+3. Working files are copied to the Colab VM's disk and hashes are checked. During training, thousands of small examples are not read directly from mounted Drive.
+4. A checkpoint is first fully written to the VM, then copied into a new directory in persistent storage; size and hash are checked, and only then is a completion marker published.
+5. Resume selects only confirmed checkpoints; the last known-good one is not deleted until the new one is verified.
 
-**Готово, когда:** сбой копирования не превращает неполный файл в доступный checkpoint; quota/disk-full приводят к понятной остановке. Диск `/content` не считается постоянным хранилищем.
+**What it looks like:** after the Colab runtime is deleted, the manifest, metrics, and completed checkpoints remain; a new runtime can restore them.
 
-**Независимая часть реализована 2026-09-16:** `src/aether/storage.py`, тесты публикации, проверок целостности, отказа копирования и выбора только подтверждённых checkpoint. Копия получает маркер COMPLETE только после проверки файлов; предыдущая не перезаписывается. A17 открыта: реальный Drive, удаление runtime и повторное восстановление не проверены.
+**Done when:** a copy failure never turns an incomplete file into an available checkpoint; quota/disk-full conditions lead to a clear stop. The `/content` disk is not considered persistent storage.
 
-### A18 — данные и разметка
+**Independently implemented part, 2026-09-16:** `src/aether/storage.py`, tests for publication, integrity checks, copy-failure handling, and selecting only confirmed checkpoints. A copy receives the COMPLETE marker only after files are verified; the previous one is not overwritten. A17 remains open: real Drive, runtime deletion, and repeated recovery have not been verified.
 
-**Действия:**
-1. Выбрать разрешённый корпус и зафиксировать источники, язык и роли каналов.
-2. Реализовать проверки JSONL, аудио и временных границ локально на малых фикстурах.
-3. Разделить данные по разговорам и участникам до обучения.
-4. В Colab выполнить ресемплинг, кодирование и выравнивание; сохранить версии преобразований.
-5. Вручную проверить примеры с паузами, пересечениями и ошибками транскрипции.
+### A18 — Data and annotation
 
-**Как будет выглядеть:** versioned manifests для train/validation/test, отчёт качества и токенизированные shards в постоянном хранилище.
+**Actions:**
+1. An approved corpus is selected, and sources, language, and channel roles are recorded.
+2. JSONL, audio, and time-boundary checks are implemented locally on small fixtures.
+3. Data is split by conversation and by speaker before training.
+4. In Colab, resampling, encoding, and alignment are performed; versions of the transformations are recorded.
+5. Examples with pauses, overlaps, and transcription errors are manually reviewed.
 
-**Готово, когда:** нет утечки разговоров между выборками, каналы синхронны, конфликтные разметки явно учтены, кеш связан с хэшами кодека и токенизатора.
+**What it looks like:** versioned manifests for train/validation/test, a quality report, and tokenized shards in persistent storage.
 
-### A19 — baseline в Colab
+**Done when:** there is no conversation leakage between splits, channels are synchronized, conflicting annotations are explicitly accounted for, and the cache is tied to the codec and tokenizer hashes.
 
-**Действия:**
-1. Выполнить preflight и строгую загрузку реальных весов в удалённой среде.
-2. Измерить память до и после прогрева и на целевой длине контекста.
-3. Провести офлайн-диалоги на фиксированных записях без обучения.
-4. Сохранить аудио, текст, задержки, конфигурацию и ошибки.
-5. При нехватке памяти зафиксировать отказ; менять точность или контекст только отдельной конфигурацией с повторной проверкой.
+### A19 — Baseline in Colab
 
-**Как будет выглядеть:** каталог `runs/<baseline_id>/` с отчётом исходного качества и фактической GPU.
+**Actions:**
+1. Preflight and strict loading of real weights are performed in the remote environment.
+2. Memory is measured before and after warm-up and at the target context length.
+3. Offline dialogues are run on fixed recordings without training.
+4. Audio, text, latencies, configuration, and errors are saved.
+5. On an out-of-memory condition, the failure is recorded; precision or context length are changed only via a separate configuration, followed by a re-check.
 
-**Готово, когда:** речь разборчива, измерения воспроизводимы, известны пределы памяти и длительности. Это точка отсчёта для всех улучшений.
+**What it looks like:** a `runs/<baseline_id>/` directory with a report on baseline quality and the actual GPU used.
 
-### A20 — живой full-duplex
+**Done when:** speech is intelligible, measurements are reproducible, and the memory and duration limits are known. This is the reference point for all subsequent improvements.
 
-**Действия:**
-1. Выбрать поддерживаемый способ интерактивного теста с удалённым runtime: безопасный канал к клиенту либо небольшой браузерный аудиоадаптер notebook.
-2. Не использовать `sounddevice` в Colab для доступа к микрофону локального компьютера: это разные машины.
-3. Если выбран браузерный адаптер, ограничить JavaScript захватом и транспортом аудио; модель и логика остаются Python.
-4. Сначала тестировать в наушниках, затем отдельно подавление эха.
-5. Проверить перебивание, подтверждение, исправление, stop и reconnect; отделить сетевую задержку от compute.
+### A20 — Live full-duplex
 
-**Как будет выглядеть:** интерактивная тестовая сессия, где речь пользователя поступает в удалённую модель, пока воспроизводится ответ, и сохранён отчёт по сценариям.
+**Actions:**
+1. A supported way to interactively test against the remote runtime is chosen: either a secure channel to the client, or a small browser-based audio adapter for the notebook.
+2. `sounddevice` is not used in Colab to access the local machine's microphone, since these are different machines.
+3. If the browser adapter is chosen, JavaScript is limited to audio capture and transport; the model and logic remain in Python.
+4. Testing is done in headphones first, with echo cancellation tested separately afterward.
+5. Barge-in, acknowledgment, correction, stop, and reconnect are checked; network latency is separated from compute latency.
 
-**Готово, когда:** подтверждено именно одновременное слушание и говорение. Двухканальный офлайн replay не заменяет живую приёмку. Если среда не позволяет нужный канал, задача остаётся открытой; Colab не превращается в обещанный постоянный production-сервер.
+**What it looks like:** an interactive test session in which the user's speech reaches the remote model while the response is being played back, with a report on the scenarios saved.
 
-### A21 — обучающий код
+**Done when:** genuinely simultaneous listening and speaking is confirmed. Two-channel offline replay does not substitute for live acceptance. If the environment does not allow the necessary channel, the task remains open; Colab is not turned into a promised, persistent production server.
 
-**Действия:**
-1. Реализовать dataset/collator, forward, маски и раздельные компоненты loss.
-2. Добавить выбор обучаемых параметров и LoRA-конфигурацию.
-3. Реализовать accumulation, clipping, scheduler, checkpoint и манифест.
-4. Внедрить защиту A06 во все пути создания и запуска тренера.
-5. Локально проверять численные функции на фиксированных тензорах, сериализацию и вызовы mock-optimizer; реального `optimizer.step()` не выполнять.
+**Status update (this documentation revision): on hold / blocked.** This task depends on A14, whose live server, Python client, and wire protocol have been deleted from the codebase (see A14). There is currently no live-serving component to test full-duplex behavior against. This task is blocked pending a future decision to reintroduce a live serving component; it is not being actively worked and cannot proceed as originally scoped until that decision is made.
 
-**Как будет выглядеть:** один тренер, который notebook вызывает через CLI, без скопированного кода обучения внутри ячеек.
+**Downstream note:** A24 and A27 both list A20 as a dependency. That dependency chain is now stalled for the same reason: neither task can be considered unblocked until A20's blocker (A14) is resolved. Their entries in Section 3 and below are left unchanged to avoid silently rewriting the recorded dependency graph, but a future reader should treat A24 and A27 as inheriting A20's blocked status until this note is updated.
 
-**Готово, когда:** контракты и validation-only проходят локально, а обучающий запуск ожидает A22 в Colab. Код готов к испытанию, но ещё не отмечен как проверенное обучение.
+### A21 — Training code
 
-### A22 — короткий пилот
+**Actions:**
+1. The dataset/collator, forward pass, masks, and separate loss components are implemented.
+2. Selection of trainable parameters and a LoRA configuration are added.
+3. Accumulation, clipping, a scheduler, checkpointing, and a manifest are implemented.
+4. The A06 safeguard is applied to every path that creates or launches the trainer.
+5. Numerical functions are checked locally on fixed tensors, along with serialization and mock-optimizer calls; a real `optimizer.step()` is never executed.
 
-**Действия:**
-1. В Colab создать новый run с жёстким небольшим `max_steps`, пределом времени и частым сохранением.
-2. Проверить один batch, backward, конечность loss/градиентов и изменение только разрешённых параметров.
-3. Выполнить короткое переобучение маленького набора и свободную генерацию после него.
-4. Измерить peak VRAM и время шага, подобрать допустимые batch/длину/accumulation.
-5. Остановиться по лимиту независимо от значения loss.
+**What it looks like:** a single trainer that the notebook invokes through the CLI, with no duplicated training code inside cells.
 
-**Как будет выглядеть:** небольшой завершённый опыт с кривой loss, списком обучаемых параметров, checkpoint и профилем памяти.
+**Done when:** the contracts and validation-only pass locally, while an actual training run awaits A22 in Colab. The code is ready to be tried, but is not yet marked as verified training.
 
-**Готово, когда:** обучающий контур действительно работает и помещается на выделенной GPU. Пилот не считается доказательством полезности на новых данных.
+### A22 — Short pilot
 
-### A23 — восстановление после отключения
+**Actions:**
+1. In Colab, a new run is created with a hard, small `max_steps`, a time limit, and frequent checkpointing.
+2. A single batch, backward pass, finiteness of loss/gradients, and that only authorized parameters change are checked.
+3. A short overfit on a small set is run, followed by free generation.
+4. Peak VRAM and step time are measured, and viable batch size/length/accumulation are tuned.
+5. The run stops at the limit regardless of the loss value.
 
-**Действия:**
-1. Сохранить полный checkpoint пилота: параметры, optimizer, scheduler, RNG, scaler при наличии и позицию данных.
-2. Завершить процесс и открыть чистую сессию Colab.
-3. Восстановить окружение по commit/lock и загрузить checkpoint из постоянного хранилища.
-4. Сравнить следующий шаг с непрерывным контрольным запуском в пределах заданного допуска.
-5. Проверить отказ для неполного файла и несовместимой конфигурации.
+**What it looks like:** a small, completed run with a loss curve, a list of trainable parameters, a checkpoint, and a memory profile.
 
-**Как будет выглядеть:** отчёт `resume-check` с номером восстановленного шага, хэшами и результатом сравнения.
+**Done when:** the training loop actually works and fits on the allocated GPU. The pilot is not considered proof of usefulness on new data.
 
-**Готово, когда:** восстановление не начинает обучение заново, не теряет optimizer state и не использует неподтверждённую копию. Оба обучающих прогона выполняются только в Colab.
+### A23 — Recovery after disconnection
 
-### A24 — первое направленное дообучение
+**Actions:**
+1. A full checkpoint of the pilot is saved: parameters, optimizer, scheduler, RNG, scaler if present, and the data position.
+2. The process is terminated and a clean Colab session is opened.
+3. The environment is restored from the commit/lock, and the checkpoint is loaded from persistent storage.
+4. The next step is compared against an uninterrupted control run within a set tolerance.
+5. Failure handling is checked for an incomplete file and an incompatible configuration.
 
-**Действия:**
-1. Выбрать одну категорию слабых ответов из baseline.
-2. Зафиксировать данные, параметры, целевую метрику и допустимые регрессии до старта.
-3. Проверить GPU, бюджет шагов/времени, свободное место и сохранение.
-4. Запустить обучение из notebook, сохраняя checkpoint по времени и шагам.
-5. Выполнять validation и ограниченную свободную генерацию; прекращать опыт при численной ошибке или достижении лимита.
+**What it looks like:** a `resume-check` report with the recovered step number, hashes, and the comparison result.
 
-**Как будет выглядеть:** новый run с неизменяемым конфигом, метриками, промежуточными результатами и завершённым checkpoint.
+**Done when:** recovery does not restart training from scratch, does not lose optimizer state, and does not use an unconfirmed copy. Both training runs are performed only in Colab.
 
-**Готово, когда:** опыт завершён либо корректно остановлен и полностью задокументирован. Сам факт завершения не означает улучшение — это решает A25.
+### A24 — First targeted fine-tuning
 
-### A25 — сравнение и экспорт
+**Actions:**
+1. One category of weak responses from the baseline is selected.
+2. Data, parameters, the target metric, and acceptable regressions are recorded before the run starts.
+3. GPU, the step/time budget, free space, and checkpointing are checked.
+4. Training is launched from the notebook, saving checkpoints on both time and step intervals.
+5. Validation and limited free generation are run; the experiment is stopped on a numerical error or when the limit is reached.
 
-**Действия:**
-1. Оценить baseline и кандидат на одинаковом независимом наборе и seed.
-2. Сравнить полезность, голос, перебивания, задержку и устойчивость.
-3. Отдельно прослушать случаи регрессии.
-4. Для принятого кандидата создать inference bundle с хэшами и конфигурацией.
-5. Проверить загрузку экспортированного комплекта в свежем Colab процессе.
+**What it looks like:** a new run with an immutable config, metrics, intermediate results, and a completed checkpoint.
 
-**Как будет выглядеть:** сравнительная таблица, решение «принят/отклонён» и, только при принятии, экспорт модели. Отклонённый опыт сохраняется как исследовательский результат.
+**Done when:** the run is either completed or correctly stopped, and is fully documented. Completion by itself does not imply improvement — that is decided in A25.
 
-**Готово, когда:** решение основано на заранее определённых критериях; экспорт не зависит от состояния старого notebook.
+### A25 — Comparison and export
 
-### A26 — проверки и командный процесс
+**Actions:**
+1. The baseline and the candidate are evaluated on the same held-out set and seed.
+2. Usefulness, voice, barge-in behavior, latency, and robustness are compared.
+3. Regression cases are separately listened to.
+4. For an accepted candidate, an inference bundle is created with hashes and configuration.
+5. Loading the exported bundle is checked in a fresh Colab process.
 
-**Действия:**
-1. Настроить Ruff, mypy, pytest и проверки схем notebook в CI.
-2. Исключить обучение, загрузку больших весов и GPU-тесты из обычного локального/CI набора.
-3. Добавить проверку защиты от локального обучения.
-4. Описать обновление lock, выпуск версии, запуск notebook и восстановление опыта.
-5. Проверить чистоту notebook: нет токенов доступа, приватных outputs и случайных обучающих автозапусков.
+**What it looks like:** a comparison table, an accept/reject decision, and, only upon acceptance, a model export. A rejected run is kept as a research result.
 
-**Как будет выглядеть:** короткий обязательный набор проверок, инструкция воспроизведения и отдельно отмеченные Colab-only проверки.
+**Done when:** the decision is based on criteria defined in advance; the export does not depend on the state of the old notebook.
 
-**Готово, когда:** другой участник может подготовить среду и найти нужный эксперимент без устных инструкций.
+### A26 — Checks and team process
 
-### A27 — приёмка первой версии
+**Actions:**
+1. Ruff, mypy, pytest, and notebook schema checks are set up in CI.
+2. Training, large-weight loading, and GPU tests are excluded from the regular local/CI suite.
+3. A check for the local-training safeguard is added.
+4. Lock updates, versioning/release, running the notebook, and reproducing a run are documented.
+5. The notebook is checked for cleanliness: no access tokens, no private outputs, and no accidental training auto-runs.
 
-**Действия:**
-1. Пройти сценарий с чистого checkout и нового Colab runtime.
-2. Проверить комплект, offline inference, живой диалог, сохранение и повторную загрузку.
-3. Сверить функциональные требования F01–F10 со ссылками на проверки.
-4. Составить список известных ограничений: язык, GPU, длительность и стоимость измеренного опыта.
+**What it looks like:** a short mandatory check suite, reproduction instructions, and separately marked Colab-only checks.
 
-**Как будет выглядеть:** отчёт о первой версии с таблицей требований, ссылками на артефакты и честным статусом каждого критерия.
+**Done when:** another team member can set up the environment and find the needed experiment without verbal instructions.
 
-**Готово, когда:** обязательные критерии пройдены; открытые ограничения не скрыты под общим статусом «готово». Базовый голосовой результат и результат улучшения оцениваются отдельно.
+### A27 — First-version acceptance
 
-### A28 — следующая итерация
+**Actions:**
+1. The scenario is run through from a clean checkout and a new Colab runtime.
+2. The bundle, offline inference, live dialogue, saving, and reloading are checked.
+3. Functional requirements F01–F10 are checked off against links to their verifications.
+4. A list of known limitations is compiled: language, GPU, duration, and the measured cost of the run.
 
-**Действия:**
-1. Сгруппировать оставшиеся ошибки по пониманию аудио, фактам, логике, контексту и динамике разговора.
-2. Выбрать наиболее значимое направление: данные, язык, текстовая основа, контекст или внешний планировщик.
-3. Оценить возможность эксперимента в доступном Colab runtime до выделения бюджета.
-4. Добавить новые задачи в этот же реестр с зависимостями и измеримым результатом.
+**What it looks like:** a first-version report with a requirements table, links to artifacts, and an honest status for each criterion.
 
-**Как будет выглядеть:** конкретная следующая гипотеза и набор задач вместо общего намерения «сделать умнее».
+**Done when:** the mandatory criteria are met; open limitations are not hidden behind a blanket "done" status. The baseline voice result and the improvement result are assessed separately.
 
-**Готово, когда:** есть проверяемая цель следующей итерации и сохранённая точка сравнения. Обучение всей фундаментальной модели с нуля не считается автоматически доступным в рамках платного Colab.
+### A28 — Next iteration
 
-## 6. Вид готового notebook
+**Actions:**
+1. Remaining errors are grouped by audio understanding, facts, logic, context, and conversational dynamics.
+2. The most significant direction is chosen: data, language, the text backbone, context, or an external planner.
+3. Feasibility of the experiment in the available Colab runtime is assessed before allocating a budget.
+4. New tasks are added to this same registry with dependencies and a measurable result.
+
+**What it looks like:** a concrete next hypothesis and a set of tasks, instead of a vague intention to "make it smarter."
+
+**Done when:** there is a testable goal for the next iteration and a saved comparison point. Training the entire foundation model from scratch is not automatically assumed to be feasible within paid Colab.
+
+## 6. Layout of the Finished Notebook
 
 ```text
 aether_colab.ipynb
-  01  Параметры: commit, run ID, config, пути, RUN_TRAINING=False
-  02  Проверка удалённого runtime, GPU, памяти и диска
-  03  Получение кода и подготовка uv-окружения
-  04  Подключение постоянного хранилища
-  05  Проверка весов, токенизатора и данных
-  06  Baseline и профилирование без обучения
-  07  Короткий обучающий пилот — только при явном включении
-  08  Выбор и проверка checkpoint для resume
-  09  Ограниченное обучение через Python CLI
-  10  Оценка, таблицы и прослушивание примеров
-  11  Экспорт и проверка копии в постоянном хранилище
-  12  Итог запуска и освобождение runtime
+  01  Parameters: commit, run ID, config, paths, RUN_TRAINING=False
+  02  Checking the remote runtime, GPU, memory, and disk
+  03  Fetching the code and preparing the uv environment
+  04  Connecting persistent storage
+  05  Verifying weights, tokenizer, and data
+  06  Baseline and profiling without training
+  07  Short training pilot — only when explicitly enabled
+  08  Selecting and verifying a checkpoint for resume
+  09  Limited training via the Python CLI
+  10  Evaluation, tables, and listening to samples
+  11  Export and verification of the copy in persistent storage
+  12  Run summary and releasing the runtime
 ```
 
-Ноутбук должен показывать выбранную конфигурацию до затратного шага, причину пропуска выключенных секций и расположение последнего подтверждённого checkpoint. Перезапуск ячеек не должен молча дублировать опыт или перезаписывать его результаты.
+The notebook is expected to show the chosen configuration before any costly step, the reason for skipping disabled sections, and the location of the last confirmed checkpoint. Rerunning cells must not silently duplicate a run or overwrite its results.
 
-## 7. Журнал завершения
+## 7. Completion Log
 
-| Дата | ID | Подтверждение | Ограничение |
+| Date | ID | Confirmation | Limitation |
 |---|---|---|---|
-| 2026-09-16 | A01 | Документы архитектуры и контрактов в docs | Реализации и проверенных весов ещё нет |
-| 2026-09-16 | A02 | development.md и согласованный Python/uv | Окружение ещё не создано |
-| 2026-09-16 | A03 | tasks.md, реестр и правила локально/Colab | Notebook и обучение ещё не запускались |
-| 2026-09-16 | A05 | Python 3.12.14, uv.lock, CLI; 6 тестов, Ruff, mypy | Backend и валидация конфигураций ещё не реализованы |
+| 2026-09-16 | A01 | Architecture and contract documents in docs | No implementation or verified weights yet |
+| 2026-09-16 | A02 | development.md and agreed Python/uv | Environment not yet created |
+| 2026-09-16 | A03 | tasks.md, the registry, and the local/Colab rules | Notebook and training not yet run |
+| 2026-09-16 | A05 | Python 3.12.14, uv.lock, CLI; 6 tests, Ruff, mypy | Backend and configuration validation not yet implemented |
 
-Текущий следующий шаг указан в разделе готовности полного notebook ниже. Исторические записи сохраняют дату и не являются актуальным описанием CLI.
+The current next step is given in the full-notebook readiness section below. Historical entries preserve their date and are not a current description of the CLI.
 
-**Gate будущего кодека (решение пользователя 2026-09-16):** сначала полностью
-реализовать и проверить aether с начальным кодеком. Переход на кодек Manifestro
-отложен до второй стадии его разработки, даже при успешном baseline aether.
-Сейчас зависимости, адаптеры и миграция будущего кодека не добавляются.
-Общий Protocol фиксирует интерфейс начального кодека, а не интеграцию будущего.
+**Future codec gate (user decision, 2026-09-16):** aether is first fully implemented and verified with the initial codec. The switch to the Manifestro codec is deferred until the second stage of its development, even if the aether baseline succeeds. For now, dependencies, adapters, and migration logic for the future codec are not added. The shared Protocol fixes the interface of the initial codec, not the integration of the future one.
 
-## Готовность полного notebook — 2026-09-18
+## Full Notebook Readiness — 2026-09-18
 
-Реализована последовательность Git fetch/detached checkout → uv/model dependencies →
-разрешение runtime и Drive → данные → реальные веса → inference с прослушиванием →
-baseline CE → pilot 5 steps → новый процесс resume до 20 → повторные CE/inference →
-export. Служебный preflight не предлагается как конечный результат. Обучающий путь
-выполняет backward/optimizer.step только при ручном удалённом RUN_TRAINING=True.
+The following sequence has been implemented: Git fetch/detached checkout → uv/model dependencies → runtime and Drive resolution → data → real weights → inference with listening → baseline CE → a 5-step pilot → a new resume process up to 20 steps → repeat CE/inference → export. The utility preflight is not presented as the final result. The training path only executes backward/optimizer.step when RUN_TRAINING=True is set manually and remotely.
 
-**Артефакты:** backend.py, dataset.py, trainer.py, remote.py, строгие схемы
-config/adaptation.py и config/operations.py, CLI и конфигурации. Зависимости
-закреплены в uv.lock отдельно от dev. Юридическая атрибуция — THIRD_PARTY_NOTICES.md;
-она включена в checkpoint. Начальный кодек сохранён, будущий не подключён.
+**Artifacts:** backend.py, dataset.py, trainer.py, remote.py, the strict config/adaptation.py and config/operations.py schemas, the CLI, and configurations. Dependencies are pinned in uv.lock separately from dev. Legal attribution is in THIRD_PARTY_NOTICES.md, which is included in the checkpoint. The initial codec is kept; the future one is not wired in.
 
-**Полученный preflight:** Tesla T4 15360 MiB, driver 580.82.07, RAM 53467192 KiB,
-диск 201975767040 байт, Python 3.12.14/Linux. Отсутствие google.colab в uv нормально.
-BF16 inference требует 22 GiB свободной VRAM, адаптация — 38 GiB (A100 40 ГБ+).
-500 юнитов не переводятся в выдуманные часы; расход контролируется в Colab UI.
+**Preflight obtained:** Tesla T4 15360 MiB, driver 580.82.07, RAM 53467192 KiB, disk 201975767040 bytes, Python 3.12.14/Linux. The absence of google.colab under uv is expected. BF16 inference requires 22 GiB of free VRAM; adaptation requires 38 GiB (A100 40 GB+). The 500 units are not converted into an invented number of hours; consumption is tracked in the Colab UI.
 
-**Объём пилота:** законный английский корпус чтения, 16 train/4 evaluation записей
-2–5 секунд, speakers не пересекаются. Обучаются две rank-8 LoRA-матрицы последнего
-temporal FFN; base и codec frozen. Есть accumulation, clipping, scheduler,
-лимит шагов/времени, optimizer/RNG checkpoint. Текст без timestamps исключён из
-loss. Это адаптация аудиогенерации, а не диалоговое instruction tuning.
+**Pilot scope:** a legally sourced English reading corpus, 16 train/4 evaluation recordings of 2–5 seconds, with no speaker overlap. Two rank-8 LoRA matrices on the last temporal FFN are trained; the base model and codec are frozen. Accumulation, clipping, a scheduler, a step/time limit, and an optimizer/RNG checkpoint are all in place. Text without timestamps is excluded from the loss. This is audio-generation adaptation, not dialogue instruction tuning.
 
-**Проверки:** 184 теста (`uv run --locked pytest`), Ruff check/format и mypy; CLI dispatch, схемы, mocks модели,
-маски, SHA256/identity, resume, компиляция notebook, Git checkout на малом репозитории.
-Локальные проверки исключают optimizer steps, полные веса и GPU-forward.
+**Checks:** 184 tests (`uv run --locked pytest`), Ruff check/format, and mypy; CLI dispatch, schemas, model mocks, masks, SHA256/identity, resume, notebook compilation, and a Git checkout against a small repository. Local checks exclude optimizer steps, full weights, and a GPU forward pass.
 
-**Открыто:** A07/A10–A13 требуют полной модели; A16/A17 — удалённого исполнения;
-A19/A22/A23 — настоящих отчётов baseline/pilot/resume. A14 live server/client,
-полные разговорные сценарии A15 и диалоговые данные A18 остаются открытыми.
-Это не блокирует подготовленный офлайн notebook с ограниченной адаптацией,
-но не заменяет приёмку проекта. Готовность к ручному запуску означает готовность
-кода, не уже успешное обучение. Инструкция: [colab.md](colab.md).
-Платные ресурсы агент не запускал.
+**Open:** A07/A10–A13 require the full model; A16/A17 require remote execution; A19/A22/A23 require real baseline/pilot/resume reports. A14 (live server/client) has since been removed from scope (see A14), the full A15 conversational scenarios remain open, and the A18 dialogue data remain open. This does not block the prepared offline notebook with limited adaptation, but it does not substitute for project acceptance. Readiness for a manual run means the code is ready, not that training has already succeeded. Instructions: [colab.md](colab.md). The agent did not launch any paid resources.

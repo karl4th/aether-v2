@@ -19,7 +19,6 @@ packages = ["src/aether"]
 
 [dependency-groups]
 dev = ["mypy>=1.15,<2", "pytest>=8.3,<10", "ruff>=0.11,<1"]
-audio = ["sounddevice>=0.5,<1", "soundfile>=0.13,<1"]
 # Model dependencies are installed only in the remote Colab environment.
 train = [{include-group = "model"}]
 model = [

@@ -1,33 +1,32 @@
-# aether — Python и uv
+# aether — Python and uv
 
-## Среды выполнения
+## Execution Environments
 
-Обязательное ограничение: текущая машина — только разработка и ограниченные тесты. Обучение, optimizer steps и переобучение даже одного примера выполняются исключительно в удалённом GPU runtime платного Google Colab. Локальное подключение runtime к Colab не используется. Полные модельные и GPU-проверки также выполняются в Colab; локально используются маленькие forward-фикстуры и mock-компоненты.
+Mandatory constraint: the current machine is for development and limited testing only. Training, optimizer steps, and retraining even a single example are performed exclusively in the remote GPU runtime of paid Google Colab. Local connection of the runtime to Colab is not used. Full model and GPU checks are likewise performed in Colab; locally, small forward fixtures and mock components are used.
 
-Целевой notebook — `notebooks/aether_colab.ipynb`. Он вызывает пакет через `uv run --locked`, а не дублирует тренер в ячейках. Обучающие секции по умолчанию выключены. План подготовки окружения, защиты запуска и постоянного хранения приведён в [tasks.md](tasks.md).
+The target notebook is `notebooks/aether_colab.ipynb`. It invokes the package via `uv run --locked` rather than duplicating the trainer in cells. Training sections are disabled by default. The plan for environment setup, run protection, and persistent storage is given in [tasks.md](tasks.md).
 
-## 1. Обязательный стек
+## 1. Required Stack
 
-Python 3.12 — начальная минорная версия проекта. Точная patch-версия фиксируется при создании окружения. uv управляет Python, `.venv`, зависимостями и командами. `pyproject.toml` задаёт пакет, `uv.lock` фиксирует разрешённые зависимости; оба файла входят в Git.
+Python 3.12 is the project's initial minor version. The exact patch version is pinned when the environment is created. uv manages Python, `.venv`, dependencies, and commands. `pyproject.toml` defines the package, `uv.lock` pins the resolved dependencies; both files are tracked in Git.
 
-Каркас CLI установлен, `--help` и `--version` работают. `train --validate-only` проверяет схему, `inspect --config ... --manifest ...` проверяет синтетический bundle; `infer`, `prepare-data`, `train`, `evaluate` доступны с разрешением удалённого runtime; `serve`/`talk` возвращают `NOT_IMPLEMENTED`; `train` без `--validate-only` возвращает `TRAINING_ENVIRONMENT_REQUIRED`. Семантика команд ниже — целевая, не уже доступная функциональность.
+The CLI scaffold is set up; `--help` and `--version` work. `train --validate-only` validates the schema, `inspect --config ... --manifest ...` validates a synthetic bundle; `infer`, `prepare-data`, `train`, `evaluate` are available given remote runtime authorization; `train` without `--validate-only` returns `TRAINING_ENVIRONMENT_REQUIRED`. The command semantics below describe the target design, not functionality that is already available.
 
-| Слой | Выбор |
+| Layer | Choice |
 |---|---|
-| Модель, обучение и тензоры | PyTorch |
-| Массивы вне модели | NumPy |
-| Веса | safetensors |
-| Текстовый токенизатор | SentencePiece, совместимый с весами |
-| Проверка конфигураций | Pydantic |
-| Сервер и WebSocket | aiohttp |
-| Локальный звук | sounddevice; чтение файлов — soundfile |
-| CLI | argparse из стандартной библиотеки |
-| Тесты | pytest, pytest-asyncio |
-| Стиль и статические проверки | Ruff, mypy |
+| Model, training, and tensors | PyTorch |
+| Arrays outside the model | NumPy |
+| Weights | safetensors |
+| Text tokenizer | SentencePiece, compatible with the weights |
+| Configuration validation | Pydantic |
+| Reading audio files | soundfile |
+| CLI | argparse from the standard library |
+| Tests | pytest, pytest-asyncio |
+| Style and static checks | Ruff, mypy |
 
-Версии библиотек и источник сборки PyTorch выбираются при проверке целевой платформы и фиксируются lock-файлом. Совместимость CUDA определяется не наличием слова `cuda` в конфигурации, а реальным успешным запуском модели и проверкой драйвера.
+Library versions and the PyTorch build source are chosen when the target platform is verified and are pinned by the lock file. CUDA compatibility is determined not by the presence of the word `cuda` in the configuration, but by the model actually running successfully and the driver being verified.
 
-## 2. Структура пакета
+## 2. Package Structure
 
 ```text
 src/aether/
@@ -38,8 +37,6 @@ src/aether/
   audio/          capture.py, resample.py, buffers.py
   model/          codec.py, quantizer.py, temporal.py, depth.py, embeddings.py
   inference/      engine.py, scheduler.py, state.py, checkpoint.py
-  server/         app.py, protocol.py, sessions.py
-  client/         local.py
   training/       dataset.py, alignment.py, losses.py, trainer.py
   evaluation/     runner.py, metrics.py, report.py
 tests/
@@ -55,11 +52,11 @@ notebooks/
   aether_colab.ipynb
 ```
 
-Модель не импортирует сервер, CLI или аудиоустройства. Сервер не реализует семплирование токенов. Подготовка данных не зависит от живых сессий. Общие контракты определяются один раз.
+The model does not import the CLI or audio devices. Data preparation does not depend on live sessions. Shared contracts are defined once.
 
-## 3. Окружение
+## 3. Environment
 
-После создания конфигурации проекта:
+After the project configuration is created:
 
 ```bash
 uv python install 3.12
@@ -68,58 +65,55 @@ uv sync --locked --group dev
 uv run --locked aether --help
 ```
 
-`uv sync --locked` проверяет актуальность lock-файла. Обычный `uv sync` может обновить его. Обновления зависимостей выполняются отдельным изменением с просмотром diff. В CI применяются `--locked` и та же зафиксированная версия uv.
+`uv sync --locked` verifies that the lock file is up to date. A plain `uv sync` may update it. Dependency updates are performed as a separate change with diff review. CI uses `--locked` and the same pinned uv version.
 
-Добавление зависимости выполняется через `uv add`, инструментов разработки — через `uv add --group dev`. Не использовать ручной `pip install` внутри проектного окружения как способ изменять состав проекта. Системные аудиобиблиотеки и GPU-драйверы устанавливаются отдельно и фиксируются в инструкции окружения.
+Adding a dependency is done via `uv add`, and development tools via `uv add --group dev`. Manual `pip install` is not used within the project environment as a means of changing the project's composition. System audio libraries and GPU drivers are installed separately and documented in the environment instructions.
 
-## 4. Группы зависимостей
+## 4. Dependency Groups
 
-- Основной пакет: вывод модели, конфигурации, загрузка весов и сервер.
-- `dev`: тестирование, форматирование и проверка типов.
-- `model`: закреплённый Python backend, PyTorch/torchaudio 2.8 и зависимости весов. Устанавливается только в Colab.
-- `train`: включает `model`; локальные тесты не устанавливают эту группу.
-- `audio`: локальное устройство ввода-вывода и файлы.
+- Main package: model inference output, configuration, and weight loading.
+- `dev`: testing, formatting, and type checking.
+- `model`: pinned Python backend, PyTorch/torchaudio 2.8, and weight dependencies. Installed only in Colab.
+- `train`: includes `model`; local tests do not install this group.
 
-Это dependency groups в `pyproject.toml`. Примеры ниже предполагают, что они определены. Не добавлять все экспериментальные библиотеки в основную группу.
+These are dependency groups in `pyproject.toml`. The examples below assume they are defined. Experimental libraries are not all added to the main group.
 
 ```bash
-uv sync --locked --group dev --group audio
+uv sync --locked --group dev
 uv run --locked --group dev ruff check .
 uv run --locked --group dev ruff format --check .
 uv run --locked --group dev mypy src/aether
 uv run --locked --group dev pytest
 ```
 
-## 5. Целевой CLI
+## 5. Target CLI
 
 ```bash
 uv run --locked aether inspect --config configs/model/base.json
 uv run --locked aether infer --config configs/model/base.json --input sample.wav --output answer.wav
-uv run --locked aether serve --config configs/runtime/local.json
-uv run --locked --group audio aether talk --url ws://127.0.0.1:8998/v1/session
 uv run --locked aether evaluate --config configs/evaluation.json
 ```
 
-Эти модельные команды с полными весами выполняются в Colab; локально используются тестовые конфигурации. Только внутри удалённого Colab runtime, после проверки ресурсов и явного включения обучения:
+These model commands with full weights are executed in Colab; locally, test configurations are used. Only within the remote Colab runtime, after resource verification and explicit enabling of training:
 
 ```bash
 uv run --locked --group train aether train --config configs/training/adapter.json
 ```
 
-Локально разрешена только валидация обучающей конфигурации через `train --validate-only`, без создания optimizer и запуска обучения.
+Locally, only validation of the training configuration via `train --validate-only` is permitted, without creating an optimizer or starting training.
 
-`inspect` проверяет файлы, размеры, словари, dtype, устройство и память, не открывая микрофон. `infer` сохраняет также текст и манифест. `serve` прогревает worker до готовности. `talk` явно открывает микрофон. `evaluate` не изменяет веса. `train` пишет в новую директорию запуска, не перезаписывая предыдущий эксперимент.
+`inspect` checks files, sizes, vocabularies, dtype, device, and memory without opening the microphone. `infer` also saves the text and manifest. `evaluate` does not modify weights. `train` writes to a new run directory without overwriting the previous experiment.
 
-## 6. Стиль реализации
+## 6. Implementation Style
 
-Публичные функции получают аннотации типов. В документации тензорных API указываются shape, dtype, устройство, диапазон значений и владелец состояния. Конфигурации валидируются до загрузки крупных весов. Неизвестные ключи считаются ошибкой.
+Public functions receive type annotations. Documentation of tensor APIs specifies shape, dtype, device, value range, and state ownership. Configurations are validated before large weights are loaded. Unknown keys are treated as errors.
 
-Контекст `torch.inference_mode()` применяется для вывода, модель переводится в `eval()`. Глобальное изменяемое состояние сессии запрещено. Audio callback не выполняет inference, файловую запись и сетевое ожидание; он только передаёт данные через ограниченную очередь.
+The `torch.inference_mode()` context is used for inference, and the model is set to `eval()`. Global mutable session state is prohibited. The audio callback does not perform inference, file writes, or network waiting; it only passes data through a bounded queue.
 
-Оптимизации компиляцией и CUDA graphs добавляются после корректного eager-вывода. Для каждой оптимизации сохраняется возможность сравнения с простой реализацией.
+Compilation optimizations and CUDA graphs are added after correct eager inference is established. For each optimization, the ability to compare against the simple implementation is preserved.
 
-## 7. Воспроизводимость
+## 7. Reproducibility
 
-Манифест запуска содержит commit, состояние изменённых файлов, хэш `uv.lock`, версии Python и uv, версию PyTorch, GPU, драйвер, dtype, конфигурацию, seed и хэши всех весов и токенизатора. Одинаковый seed не гарантирует побитового совпадения на разных устройствах; сравнение имеет заданные допуски.
+The run manifest contains the commit, the state of modified files, the `uv.lock` hash, Python and uv versions, PyTorch version, GPU, driver, dtype, configuration, seed, and hashes of all weights and the tokenizer. The same seed does not guarantee bitwise identical results across different devices; comparisons use specified tolerances.
 
-В Git не включаются `.venv`, веса, кеши, записи микрофона, локальные секреты и большие отчёты. Маленькие синтетические фикстуры и схемы данных включаются. Названия проекта в пользовательском интерфейсе, пакете и документах — `aether`.
+`.venv`, weights, caches, microphone recordings, local secrets, and large reports are not included in Git. Small synthetic fixtures and data schemas are included. The project name in the user interface, package, and documents is `aether`.

@@ -1,80 +1,100 @@
-# aether — полный запуск в Colab
+# aether — full run in Colab
 
-`notebooks/aether_colab.ipynb` получает код через Git fetch и detached checkout,
-создаёт Python 3.12.14/.venv через uv и фиксированный lock-файл. Архив загружать
-не надо. Для приватного репозитория — read-only Colab Secret `GITHUB_TOKEN`.
+`notebooks/aether_colab.ipynb` fetches the code via Git fetch and a detached
+checkout, and creates a Python 3.12.14 `.venv` via uv from a pinned lock file.
+No archive upload is required. For a private repository, a read-only Colab
+Secret `GITHUB_TOKEN` is used.
 
-## Параметры запуска
+## Launch parameters
 
-- Полный сценарий inference + ограниченная адаптация: удалённый управляемый
-  платный Colab с A100 40 ГБ или больше. Проверяется минимум 38 GiB свободной VRAM.
-- Только inference: BF16 GPU с минимум 22 GiB свободной VRAM, например L4/A100.
-- T4 из отчёта пользователя (15360 MiB) не поддерживается BF16-профилем. Отказ
-  происходит до загрузки весов; установка флага не обходит проверку ресурса.
-- `CONFIRM_REMOTE_PAID_COLAB=True` после выбора правильного runtime.
-- `RUN_TRAINING=False` — inference и baseline; `True` — также пилот, resume,
-  адаптация, повторная оценка, прослушивание и экспорт.
-- `UPLOAD_QUESTION=True` — загрузить свой короткий английский вопрос WAV/FLAC.
-  При False используется проверочная запись чтения из отложенной выборки.
-- `GIT_REF=main` получает текущий commit. Для resume укажите точный
-  `source_revision` из `runs/<RUN_ID>/run.json` и путь `RESUME_CHECKPOINT`.
-- `RUN_ID` уникален; все результаты — в Google Drive `aether/runs/<RUN_ID>`.
+- Full inference + limited adaptation scenario: a remote managed paid Colab
+  with an A100 40 GB or larger. A minimum of 38 GiB of free VRAM is checked.
+- Inference only: a BF16 GPU with at least 22 GiB of free VRAM, e.g. L4/A100.
+- The T4 from the user's report (15360 MiB) is not supported by the BF16
+  profile. The rejection happens before weight loading; setting the flag does
+  not bypass the resource check.
+- `CONFIRM_REMOTE_PAID_COLAB=True` confirms that the correct runtime has been
+  selected.
+- `RUN_TRAINING=False` runs inference and baseline only; `True` additionally
+  runs the pilot, resume, adaptation, re-evaluation, playback, and export.
+- `UPLOAD_QUESTION=True` uploads a short custom English question in
+  WAV/FLAC. When False, a held-out reading-evaluation recording is used
+  instead.
+- `GIT_REF=main` retrieves the current commit. For resume, the exact
+  `source_revision` from `runs/<RUN_ID>/run.json` and the `RESUME_CHECKPOINT`
+  path are specified.
+- `RUN_ID` is unique; all results go to Google Drive at
+  `aether/runs/<RUN_ID>`.
 
-Служебный preflight не требуется присылать отдельно: диагностика встроена
-непосредственно перед модельными операциями. GPU-пороги не гарантируют отсутствие
-OOM. На ошибке памяти уменьшите frames до 32 для нового эксперимента либо выберите
-больше VRAM; для точного resume конфигурация остаётся прежней.
+A separate preflight report does not need to be submitted: diagnostics are
+built in immediately before model operations. GPU thresholds do not
+guarantee the absence of OOM. On a memory error, frames is reduced to 32 for
+a new experiment, or a GPU with more VRAM is selected; for an exact resume,
+the configuration stays unchanged.
 
-## Что выполняется
+## What the notebook executes
 
-1. Загрузка закреплённого комплекта голосовой модели, начального кодека и
-   токенизатора. Safetensors, строгая загрузка через закреплённый runtime;
-   SHA256/размеры файлов, revision, seed и context записываются в inference.json.
-2. Загрузка опубликованного английского корпуса чтения, проверка официальных
-   checksum, выбор 16 train / 4 evaluation utterances длительностью 2–5 секунд,
-   проверка непересечения speakers. Рабочие файлы — на VM; манифест/атрибуция — Drive.
-3. Потоковое кодирование, генерация текста/аудио и воспроизведение результата
-   прямо в notebook. Каждая генерация имеет отдельное streaming state.
-4. Teacher-forced audio CE и perplexity на evaluation до адаптации.
-5. При RUN_TRAINING=True: rank-8 адаптер выхода последнего temporal FFN, frozen
-   base и codec, batch=1, 64 кадра, 20 optimizer steps, lr=1e-4, clipping=1.
-   Пилот останавливается после 5 шагов, следующий процесс загружает checkpoint
-   и продолжает тот же план до 20. Обучающий цикл ограничен 1800 секундами; загрузка и setup в этот лимит не входят.
-6. Повторные оценка и генерация с адаптером, экспорт проверенного checkpoint.
+1. Loading of the pinned voice model bundle, base codec, and tokenizer.
+   Safetensors, strict loading via the pinned runtime; SHA256/file sizes,
+   revision, seed, and context are recorded in inference.json.
+2. Loading of the published English reading corpus, verification of
+   official checksums, selection of 16 train / 4 evaluation utterances
+   2-5 seconds long, and a check that speakers do not overlap. Working
+   files reside on the VM; the manifest/attribution reside on Drive.
+3. Streaming encoding, text/audio generation, and playback of the result
+   directly in the notebook. Each generation has its own separate streaming
+   state.
+4. Teacher-forced audio CE and perplexity on the evaluation set before
+   adaptation.
+5. When RUN_TRAINING=True: a rank-8 adapter on the output of the last
+   temporal FFN, with a frozen base and codec, batch=1, 64 frames, 20
+   optimizer steps, lr=1e-4, clipping=1. The pilot stops after 5 steps; the
+   next run loads the checkpoint and continues the same plan up to 20. The
+   training loop is capped at 1800 seconds; loading and setup are not
+   included in this limit.
+6. Re-evaluation and generation with the adapter, and export of the
+   verified checkpoint.
 
-Источник данных не содержит word timestamps. Текстовый канал замаскирован;
-loss считается только по валидным аудиокодам. Это ограниченная адаптация речи,
-а не обучение диалогу, знаниям или английскому языку. Улучшение CE не доказывает
-улучшение разговорного качества. Содержательная оценка остаётся ручной.
+The data source does not contain word timestamps. The text channel is
+masked; loss is computed only over valid audio codes. This is a limited
+speech adaptation, not training for dialogue, knowledge, or the English
+language. An improvement in CE does not prove an improvement in
+conversational quality. Substantive evaluation remains manual.
 
-## Сохранение и восстановление
+## Save and resume
 
-Checkpoint содержит только адаптер, optimizer/scheduler/RNG, history и metadata;
-базовые веса повторно не сохраняются. Сначала файл создаётся на VM, затем копия
-проверяется и получает COMPLETE на Drive. Resume допускает только подтверждённый
-checkpoint с теми же кодом, backend/base revision, training config и SHA256 датасета.
-Аудио повторно загружается из тех же проверенных архивов; его расположение не
-меняет идентичность. Загрузка состояния использует `weights_only=True`.
+The checkpoint contains only the adapter, optimizer/scheduler/RNG state,
+history, and metadata; base weights are not saved again. The file is first
+created on the VM, then the copy is verified and marked COMPLETE on Drive.
+Resume accepts only a confirmed checkpoint with the same code, backend/base
+revision, training config, and dataset SHA256. Audio is reloaded from the
+same verified archives; its location does not change its identity. State
+loading uses `weights_only=True`.
 
-Чтобы продолжить после отключения VM: выбрать тот же GIT_REF, новый RUN_ID,
-RESUME_CHECKPOINT на Drive, RUN_TRAINING=True и снова выполнить notebook.
-Старые результаты не перезаписываются. Файлы условий использования источников
-сохраняются рядом с результатами; юридическая атрибуция — THIRD_PARTY_NOTICES.md.
+To continue after the VM disconnects, the same GIT_REF, a new RUN_ID, the
+RESUME_CHECKPOINT on Drive, and RUN_TRAINING=True are used and the notebook
+is run again. Old results are not overwritten. Source terms-of-use files
+are stored alongside the results; legal attribution is in
+THIRD_PARTY_NOTICES.md.
 
-## Граница проверенного
+## Boundary of what has been verified
 
-Локально проверяются схемы, CLI, mocks, маски, идентичности resume, проверки
-целостности, Git checkout и компиляция ячеек. Настоящих optimizer steps,
-загрузки полных весов или GPU-forward на текущей машине не было. Код и notebook
-готовы к ручному удалённому испытанию; успешное обучение и качество ещё не заявлены.
+Schemas, the CLI, mocks, masks, resume identities, integrity checks, Git
+checkout, and cell compilation are verified locally. There have been no
+real optimizer steps, full weight loading, or GPU forward passes on the
+current machine. The code and notebook are ready for manual remote
+testing; successful training and quality have not yet been claimed.
 
-Отчёт пользователя уже подтвердил T4 15360 MiB, драйвер 580.82.07, RAM 53467192 KiB
-и около 202 ГБ свободного диска. Отсутствие google.colab в uv-процессе нормально.
-Gate использует Linux, несколько Colab environment observations, NVIDIA driver,
-связанные с boot ID/живым kernel разрешения и отдельное разрешение обучения.
-Это защита от случайного локального запуска, не доказательство платного тарифа.
-Бюджет 500 юнитов контролируется пользователем в UI; пакет ограничивает шаги/время,
-но не считает списания Colab. По завершении отключите GPU runtime.
+The user's report has already confirmed a T4 15360 MiB, driver 580.82.07,
+53467192 KiB of RAM, and about 202 GB of free disk space. The absence of
+google.colab in the uv process is normal. The gate uses Linux, several
+Colab environment observations, the NVIDIA driver, permissions tied to the
+boot ID/live kernel, and a separate training permission. This is a
+safeguard against accidental local execution, not proof of a paid tier.
+The 500-unit budget is controlled by the user in the UI; the package
+limits steps/time but does not track Colab unit consumption. Once
+finished, the GPU runtime is disconnected.
 
-Живой WebSocket сервер/клиент и полноценная conversational evaluation ещё не
-реализованы. Notebook даёт офлайн аудиодемо с воспроизведением, не live full-duplex.
+Full conversational evaluation remains open; live serving is out of scope
+for the current model-research phase. The notebook provides an offline
+audio demo with playback, not live full-duplex.

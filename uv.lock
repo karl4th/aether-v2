@@ -11,10 +11,6 @@ dependencies = [
 ]
 
 [package.dev-dependencies]
-audio = [
-    { name = "sounddevice" },
-    { name = "soundfile" },
-]
 dev = [
     { name = "mypy" },
     { name = "pytest" },
@@ -41,10 +37,6 @@ train = [
 requires-dist = [{ name = "pydantic", specifier = ">=2.10,<3" }]
 
 [package.metadata.requires-dev]
-audio = [
-    { name = "sounddevice", specifier = ">=0.5,<1" },
-    { name = "soundfile", specifier = ">=0.13,<1" },
-]
 dev = [
     { name = "mypy", specifier = ">=1.15,<2" },
     { name = "pytest", specifier = ">=8.3,<10" },

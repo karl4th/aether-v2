@@ -1,75 +1,75 @@
-# aether — спецификация проекта
+# aether — project specification
 
-## 1. Назначение
+## 1. Purpose
 
-aether — потоковая speech-to-speech система для живого диалога. Пользователь говорит свободно, а система непрерывно слушает и может говорить одновременно с ним. Первое достижение — воспроизводимое голосовое взаимодействие; следующий этап — повышение качества понимания и ответов.
+aether is a streaming speech-to-speech system for live dialogue. The user speaks freely, and the system continuously listens and can speak simultaneously with them. The first milestone is reproducible voice interaction; the next stage is improving the quality of understanding and responses.
 
-Язык разработки — Python. Управление интерпретатором, окружением, зависимостями и запуском — через uv. Для нейросетей используется PyTorch. Новый отдельный runtime на другом языке не входит в первую версию.
+The development language is Python. The interpreter, environment, dependencies, and execution are managed via uv. PyTorch is used for the neural networks. A new, separate runtime in another language is out of scope for the first version.
 
-Текущая машина предназначена только для разработки и ограниченных тестов без обучения. Все обучающие прогоны, включая пилоты и проверки optimizer, выполняются через notebook в удалённом GPU runtime платного Google Colab. Полные модельные проверки также вынесены в Colab. Задачи, зависимости и фактическое выполнение фиксируются в [tasks.md](tasks.md).
+The current machine is intended only for development and limited tests without training. All training runs, including pilots and optimizer checks, are performed via a notebook on a remote GPU runtime of paid Google Colab. Full model checks are likewise carried out on Colab. Tasks, dependencies, and actual execution are tracked in [tasks.md](tasks.md).
 
-## 2. Функциональные требования
+## 2. Functional requirements
 
-| ID | Требование | Проверяемый результат |
+| ID | Requirement | Verifiable outcome |
 |---|---|---|
-| F01 | Принимать поток mono PCM | Произвольные границы пакетов не меняют последовательность модельных кадров |
-| F02 | Формировать речь до завершения сессии | Выход доступен покадрово, без накопления целого ответа |
-| F03 | Слушать во время ответа | Входные кадры продолжают поступать в модель |
-| F04 | Моделировать паузы и пересечения | Тишина и одновременная речь сохраняют временную ось |
-| F05 | Выдавать текст собственной речи | Специальные токены скрыты, порядок текста сохранён |
-| F06 | Завершать и начинать разговор | Новый разговор получает чистое состояние |
-| F07 | Обрабатывать явную отмену | Выходная очередь очищается, сессия завершается |
-| F08 | Воспроизводить записанный вход | Одинаковая конфигурация даёт сравнимые результаты |
-| F09 | Сохранять манифест запуска | Результат связан с весами, кодом, окружением и seed |
-| F10 | Поддерживать дообучение | Можно сравнить базовую модель и адаптированную на независимом наборе |
+| F01 | Accept a mono PCM stream | Arbitrary packet boundaries do not change the sequence of model frames |
+| F02 | Generate speech until the session ends | Output is available frame by frame, without accumulating a whole response |
+| F03 | Listen while responding | Input frames continue to be fed into the model |
+| F04 | Model pauses and overlaps | Silence and simultaneous speech preserve the timeline |
+| F05 | Emit the text of its own speech | Special tokens are hidden, text order is preserved |
+| F06 | End and start a conversation | A new conversation receives a clean state |
+| F07 | Handle explicit cancellation | The output queue is cleared, the session ends |
+| F08 | Replay recorded input | The same configuration yields comparable results |
+| F09 | Save a run manifest | The result is linked to weights, code, environment, and seed |
+| F10 | Support fine-tuning | The base model and the adapted model can be compared on an independent set |
 
-F07 означает отмену всей сессии в первой версии. Сохранение разговора после принудительного удаления уже сгенерированной речи — отдельный эксперимент. Обычное голосовое перебивание обрабатывается моделью без административного сброса.
+F07 means cancellation of the entire session in the first version. Preserving the conversation after a forced removal of already generated speech is a separate experiment. Ordinary voice interruption (barge-in) is handled by the model without an administrative reset.
 
-## 3. Нефункциональные требования
+## 3. Non-functional requirements
 
-1. Одна сессия не использует изменяемое состояние другой.
-2. Очереди и длительность сессии ограничены конфигурацией.
-3. Сервер не объявляет готовность до загрузки, проверки и прогрева модели.
-4. CPU допустим для маленьких тестовых конфигураций; работа полной модели в реальном времени на CPU не обещается.
-5. Linux с CUDA — основной профиль исследования производительности. macOS — профиль разработки; ускорение на нём требует отдельного подтверждения совместимости операций.
-6. Записи микрофона по умолчанию не сохраняются. Диагностический сбор аудио включается явно.
-7. Ошибки формы, диапазона токенов и конфигурации обнаруживаются до начала живой сессии.
-8. Загрузка весов выполняется строго: отсутствующие и неожиданные параметры не игнорируются без версионированного преобразования.
-9. Изменение численной точности сопровождается проверкой качества и задержки.
-10. Обязательные проверки запускаются через uv из зафиксированного окружения.
+1. A session does not use another session's mutable state.
+2. Queues and session duration are bounded by configuration.
+3. The generation engine does not report a ready state until the model has been loaded, validated, and warmed up.
+4. CPU is acceptable for small test configurations; real-time operation of the full model on CPU is not guaranteed.
+5. Linux with CUDA is the primary profile for performance research. macOS is the development profile; acceleration on it requires separate confirmation of operator compatibility.
+6. Microphone recordings are not saved by default. Diagnostic audio collection is enabled explicitly.
+7. Shape errors, token range errors, and configuration errors are detected before a live session starts.
+8. Weight loading is strict: missing and unexpected parameters are not ignored without a versioned conversion.
+9. A change in numerical precision is accompanied by a quality and latency check.
+10. Mandatory checks are run via uv from a pinned environment.
 
-## 4. Первая версия
+## 4. First version
 
-В состав входят модель, потоковый кодек, генератор, Python-клиент, сервер с одним активным разговором, офлайн-оценка и подготовка первого эксперимента дообучения.
+The scope includes the model, the streaming codec, the generator, offline evaluation, and preparation of the first fine-tuning experiment.
 
-Внешняя текстовая LLM не является обязательной частью голосового цикла. Полная цепочка распознавания, генерации текста и озвучивания может использоваться как отдельный сравнительный эксперимент, но не заменяет проверку совместной двухпоточной модели.
+An external text LLM is not a required part of the voice loop. The full pipeline of recognition, text generation, and speech synthesis can be used as a separate comparison experiment, but it does not replace validation of the joint two-stream model.
 
-Не входят в первую приёмку: многопользовательский batching, телефония, мобильный клиент, выполнение действий, долговременная память, произвольное клонирование голоса, гарантированная мультиязычность и обучение всей системы с нуля.
+Out of scope for the first acceptance: multi-user batching, telephony, a mobile client, action execution, long-term memory, arbitrary voice cloning, guaranteed multilinguality, and training the entire system from scratch.
 
-## 5. Результаты работы команды
+## 5. Team deliverables
 
-- Устанавливаемый Python-пакет `aether` и команды CLI.
-- Версионированные схемы конфигурации модели и сессии.
-- Проверенный комплект весов, токенизатора и манифеста совместимости вне Git.
-- Работающий офлайн-контур и живой клиент.
-- Набор тестов временного выравнивания и изоляции.
-- Отчёт о задержке, памяти, длительности и качестве диалога.
-- Данные и протокол для первого контролируемого дообучения.
+- An installable Python package `aether` and its CLI commands.
+- Versioned configuration schemas for the model and the session.
+- A validated set of weights, tokenizer, and compatibility manifest, kept outside Git.
+- A working offline pipeline.
+- A test suite for temporal alignment and isolation.
+- A report on latency, memory, duration, and dialogue quality.
+- Data and a protocol for the first controlled fine-tuning experiment.
 
-## 6. Что считать аналогичным поведением
+## 6. What counts as equivalent behavior
 
-Похожий тембр или короткая демонстрация недостаточны. Сравнение проводится на одинаковых сценариях, оборудовании, формате аудио и сетевых условиях. Необходимо оценивать не только первые ответы, но и исправления, перебивания, паузы, длинный контекст и повторные подключения.
+A similar timbre or a brief demonstration is not sufficient. Comparison is carried out under identical scenarios, hardware, audio format, and network conditions. Evaluation covers not only initial responses but also corrections, interruptions, pauses, long context, and reconnections.
 
-Претензия на воспроизведение архитектуры требует совпадения вычислительных контрактов. Претензия на воспроизведение качества требует обученных весов и измерений. Это два разных критерия готовности.
+A claim of architecture reproduction requires matching computational contracts. A claim of quality reproduction requires trained weights and measurements. These are two distinct readiness criteria.
 
-## 7. Решения перед началом вычислительных экспериментов
+## 7. Decisions before computational experiments
 
-| Решение | Что блокирует |
+| Decision | What it blocks |
 |---|---|
-| Комплект весов либо обучение с нуля | Проверку разборчивой генерации |
-| GPU и доступная память | Профиль производительности и размер обучения |
-| Первый язык оценки | Выбор данных и содержательные критерии |
-| Доступные двухканальные записи | Обучение естественным перебиваниям |
-| Бюджет и длительность экспериментов | Выбор полной адаптации или LoRA |
+| Weight set versus training from scratch | Validation of intelligible generation |
+| GPU and available memory | Performance profile and training scale |
+| First evaluation language | Data selection and substantive criteria |
+| Available two-channel recordings | Training for natural interruptions |
+| Budget and experiment duration | Choice between full adaptation or LoRA |
 
-Пока решения открыты, можно реализовывать протокол, маленькие тестовые модели, контракты, оценку и управление окружением. Эти работы не требуют выдавать случайную модель за готового собеседника.
+While these decisions remain open, work can proceed on the protocol, small test models, contracts, evaluation, and environment management. This work does not require presenting a random model as a finished conversational partner.

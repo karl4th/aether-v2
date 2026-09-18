@@ -1,45 +1,45 @@
-# aether — выполнение и протокол
+# aether — generation runtime
 
-## 1. Жизненный цикл
+## 1. Lifecycle
 
 ```mermaid
 stateDiagram-v2
     [*] --> Loading
-    Loading --> Warming: конфигурация и веса проверены
-    Warming --> Ready: контрольный прогон завершён
-    Ready --> Active: принята сессия
-    Active --> Closing: stop или предел длительности
-    Active --> Failed: ошибка или переполнение
-    Closing --> Ready: состояние освобождено
-    Failed --> Ready: worker исправен и сброшен
-    Failed --> Loading: требуется перезапуск worker
+    Loading --> Warming: config and weights validated
+    Warming --> Ready: warmup validation pass completed
+    Ready --> Active: session accepted
+    Active --> Closing: stop or duration limit reached
+    Active --> Failed: error or overflow
+    Closing --> Ready: state released
+    Failed --> Ready: worker healthy and reset
+    Failed --> Loading: worker restart required
 ```
 
-На первой версии worker принимает одну сессию. Вторая получает `BUSY`, а не ждёт неопределённое время в аудиоочереди.
+In the current design, a worker handles a single active session at a time.
 
-Прогрев использует отдельное состояние, которое полностью уничтожается до `Ready`. `/health/live` проверяет процесс, `/health/ready` — возможность принять разговор. Готовность недоступна при загрузке, перегрузке и неисправном worker.
+Warmup uses a dedicated state that is completely discarded before the engine reaches `Ready`. Readiness reflects whether the engine has finished loading, completed its warmup pass, and can accept a new generation session; it is unavailable while loading, while overloaded, or when the worker is in a failed state.
 
-## 2. Исполнение одного шага
+## 2. Single-Step Execution
 
-1. Проверить формат и номер входного пакета.
-2. Добавить PCM в ограниченный входной буфер.
-3. При наличии 1920 отсчётов извлечь один кадр.
-4. Закодировать кадр, не сбрасывая encoder state.
-5. Записать наблюдаемые коды в расписание пользовательских каналов.
-6. Собрать текущий вход temporal с начальными значениями для недоступных позиций.
-7. Выполнить temporal forward с KV-кешем.
-8. Выбрать текстовый токен.
-9. Выполнить восемь внутренних шагов depth и очистить его локальный кеш.
-10. Записать собственные коды и текст в буфер генерации.
-11. Собрать полный выровненный выходной кадр, если он доступен.
-12. Декодировать его и передать в ограниченную выходную очередь.
-13. Обновить счётчики, длительности и состояние RNG.
+1. The format and sequence number of the incoming packet are validated.
+2. The PCM is appended to the bounded input buffer.
+3. Once 1920 samples are available, a single frame is extracted.
+4. The frame is encoded without resetting encoder state.
+5. The observed codes are recorded into the user-channel schedule.
+6. The current temporal input is assembled, using placeholder values for positions that are not yet available.
+7. The temporal forward pass runs with the KV cache.
+8. The text token is selected.
+9. The eight internal depth steps run, and the depth transformer's local cache is cleared.
+10. The model's own codes and text are written into the generation buffer.
+11. The complete aligned output frame is assembled, once available.
+12. It is decoded and pushed onto the bounded output queue.
+13. Counters, durations, and RNG state are updated.
 
-Генератор может вернуть `None` во время заполнения задержек. Это нормальный результат инициализации, не ошибка и не инструкция сбросить сессию.
+The generator can return `None` while latency buffers are filling. This is a normal outcome of initialization, not an error, and not a signal to reset the session.
 
-## 3. Внутренний Python API
+## 3. Internal Python API
 
-Целевые интерфейсы:
+Target interfaces:
 
 ```python
 class AudioCodec:
@@ -53,82 +53,38 @@ class DialogueEngine:
     def close(self, state): ...
 ```
 
-Это описание границ модулей, а не готовый код. Типизированные структуры результата содержат `frame_index`, аудиокоды и отображаемый текст. Явное владение state предпочтительнее неявных глобальных переключений активной сессии.
+This is a description of module boundaries, not ready-to-run code. The typed result structures carry `frame_index`, audio codes, and displayable text. Explicit ownership of state is preferred over implicit global switching of the active session.
 
-## 4. Протокол версии 1
+## 4. Queues and Timing
 
-Адрес: `/v1/session`. Соединение WebSocket. Контрольные сообщения — JSON UTF-8; аудио — двоичные сообщения. Первый прототип использует PCM float32 little-endian, mono, 24 кГц. Транспортное сжатие добавляется только с новой согласованной возможностью протокола.
+Target initial limits for the full runtime: no more than 6 complete frames in the input queue and 6 in the output queue. The implemented `PCMBuffer` uses a configurable limit (4 by default); see [audio.md](audio.md). This is an emergency ceiling of 480 ms per queue, not a normal target size. Metrics begin signaling growth well before the limit is reached.
 
-Начало:
+Under sustained overflow, the session is closed with `OVERLOAD`. Silently dropping the middle of the input while continuing to report metrics as though the audio had been fully processed is not acceptable.
 
-```json
-{"type":"session.start","protocol":1,"audio":{"encoding":"pcm_f32le","sample_rate":24000,"channels":1},"seed":42}
-```
+The engine does not synthesize silence to fill gaps when input samples stop arriving: silence is represented only by actual zero or low-amplitude samples that were received, while an absence of incoming samples beyond the timeout is treated as an input fault rather than as silence. The initial audio-absence timeout is 5 seconds.
 
-Ответ:
+PCM frames arrive on an audio clock. The engine does not run a free-running generation loop that races ahead of the input. Clock drift and underruns are logged; resampling correction may be added after further measurement.
 
-```json
-{"type":"session.ready","protocol":1,"session_id":"generated-id","frame_samples":1920,"max_input_packet_samples":3840,"max_duration_ms":230000}
-```
+## 5. Termination and Failure
 
-Длительность 230 секунд — исходный предел прототипа с запасом относительно контекста 240 секунд, не доказанное оптимальное значение. Сервер объявляет фактический предел конфигурации.
+On session stop, no further input is accepted, the queues are drained, and the worker releases its state. There is no requirement to force the response to finish.
 
-### Двоичный пакет
+For offline inference, a separate mode is allowed that pads the final frame with zeros. The number of padding samples added is recorded in the report. The generation tail that follows the end of input has a bounded duration and is clearly distinguished from the original recording.
 
-| Смещение | Размер | Значение |
-|---|---|---|
-| 0 | 1 байт | Версия = 1 |
-| 1 | 1 байт | Вид: 1 вход, 2 выход |
-| 2 | 4 байта | `sequence`, uint32 little-endian |
-| 6 | 8 байт | `sample_offset`, uint64 little-endian |
-| 14 | 4 байта | `sample_count`, uint32 little-endian |
-| 18 | `4 × sample_count` | PCM float32 little-endian |
-
-Для каждого направления счётчики отдельные. `sample_offset` — число отсчётов от начала этого аудиопотока, не wall clock. Первый пакет имеет sequence и offset равные нулю. Размер payload обязан точно соответствовать заголовку. Пакет содержит от 1 до 3840 отсчётов; сервер собирает кадры через границы пакетов. Максимальный двоичный размер — 15378 байт.
-
-WebSocket сохраняет порядок. Пропуск или повтор sequence означает ошибку приложения; первая версия завершает сессию с `PROTOCOL_ERROR`. Возобновление старого состояния после разрыва не поддерживается.
-
-### Остальные события
-
-```json
-{"type":"text.output","frame_index":18,"text":"Hello"}
-{"type":"session.stop"}
-{"type":"session.closed","reason":"user_stop"}
-{"type":"session.error","code":"OVERLOAD","message":"Audio queue limit exceeded"}
-```
-
-`frame_index` текста относится к выровненному выходу, а не обещает точную границу произнесённого слова. Клиент добавляет текст инкрементально. Максимальный размер контрольного сообщения — 16 КиБ. Неизвестные обязательные поля и версия отклоняются; секреты и внутренние traceback клиенту не отправляются.
-
-## 5. Очереди и время
-
-Целевые начальные ограничители полного runtime: не более 6 полных кадров во входной очереди и 6 в выходной. Реализованный `PCMBuffer` использует переданный лимит (по умолчанию 4); см. [audio.md](audio.md). Это аварийный предел 480 мс на очередь, а не нормальный целевой размер. Метрики начинают сигнализировать о росте раньше достижения лимита.
-
-При устойчивом переполнении сессия закрывается с `OVERLOAD`. Нельзя молча удалять середину входа и продолжать выдавать измерения как будто аудио было обработано полностью.
-
-Если capture callback перестал доставлять звук, клиент не подменяет это пользовательской тишиной. Тишина — реальные полученные нулевые либо тихие отсчёты; отсутствие данных — проблема устройства или соединения. Таймаут отсутствия аудио первой версии — 5 секунд.
-
-PCM кадры приходят по аудиочасам. Сервер не запускает свободный цикл генерации, который обгоняет вход. Clock drift и underrun фиксируются; коррекция ресемплинга может быть добавлена после измерения.
-
-## 6. Завершение и отказ
-
-При `session.stop` новые входные данные не принимаются, очереди очищаются, микрофон клиента закрывается, worker освобождает состояние. Принудительно договаривать ответ не требуется.
-
-Для offline inference разрешён отдельный режим завершения последнего кадра нулями. Количество добавленных отсчётов сохраняется в отчёте. Хвост генерации после окончания входа имеет ограниченную длительность и явно отличается от исходной записи.
-
-| Код | Действие |
+| Code | Action |
 |---|---|
-| `BUSY` | Отклонить новую сессию |
-| `INVALID_CONFIG` | Не переводить worker в ready |
-| `PROTOCOL_ERROR` | Закрыть текущее соединение |
-| `AUDIO_TIMEOUT` | Завершить разговор и освободить состояние |
-| `OVERLOAD` | Закрыть сессию, записать размеры очередей |
-| `MODEL_ERROR` | Остановить выдачу, проверить возможность восстановления worker |
-| `CONTEXT_LIMIT` | Завершить сессию без обещания сохранения памяти |
+| `BUSY` | Reject the new session |
+| `INVALID_CONFIG` | Do not transition the worker to ready |
+| `PROTOCOL_ERROR` | Close the current session |
+| `AUDIO_TIMEOUT` | End the conversation and release state |
+| `OVERLOAD` | Close the session, log queue sizes |
+| `MODEL_ERROR` | Stop output, check whether the worker can be recovered |
+| `CONTEXT_LIMIT` | End the session without promising memory retention |
 
-## 7. Наблюдаемость
+## 6. Observability
 
-Сохранять длительности encode, temporal, depth, decode и отправки; количество входных и выходных отсчётов; текущие очереди; p50/p95/p99 шага; underrun/overflow; GPU memory; причину закрытия.
+Track encode, temporal, depth, decode, and dispatch durations; input and output sample counts; current queue depths; step p50/p95/p99; underrun/overflow counts; GPU memory; and the closing reason.
 
-GPU операции асинхронны. Для профилирования использовать корректные GPU timers; не принимать время постановки операции в очередь за время вычисления. Тяжёлая синхронизация каждого кадра допускается в профилирующем режиме, но не должна незаметно менять обычный режим.
+GPU operations are asynchronous. Profiling relies on proper GPU timers rather than treating the time an operation is enqueued as its compute time. Heavyweight per-frame synchronization is acceptable in a profiling mode, but must not silently change behavior in normal operation.
 
-Логи по умолчанию содержат идентификаторы и метрики, без сырого аудио и полного текста разговора. Сбор диагностических записей — явная опция.
+By default, logs contain identifiers and metrics, without raw audio or full conversation text. Collecting diagnostic recordings is an explicit opt-in.

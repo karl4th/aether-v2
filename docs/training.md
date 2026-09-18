@@ -1,22 +1,22 @@
-# aether — данные и обучение
+# aether — data and training
 
-## Обязательная среда
+## Required environment
 
-Всё обучение по этому документу выполняется только в удалённом GPU runtime платного Google Colab через `notebooks/aether_colab.ipynb`. Это включает пилот, backward/optimizer-проверки, переобучение одного примера и проверку возобновления. Текущая машина используется для разработки и ограниченных тестов без обновления параметров. Точные задачи и статусы ведутся в [tasks.md](tasks.md).
+All training under this document is performed only in the remote GPU runtime of paid Google Colab via `notebooks/aether_colab.ipynb`. This includes the pilot run, backward/optimizer checks, single-example overfitting, and resume verification. The current machine is used for development and limited tests without parameter updates. Exact tasks and statuses are tracked in [tasks.md](tasks.md).
 
-GPU и доступная память проверяются заново перед каждым запуском. Notebook вызывает Python-пакет через uv. Данные для активной работы размещаются на диске Colab VM, завершённые checkpoint и отчёты копируются и проверяются в постоянном хранилище. Временный диск runtime не является резервной копией. Обучение с нуля остаётся исследовательской программой, осуществимость которой на доступных ресурсах не подтверждена.
+GPU and available memory are checked anew before each run. The notebook invokes the Python package via uv. Data for active work is placed on the Colab VM disk; completed checkpoints and reports are copied to and verified in persistent storage. The runtime's temporary disk is not a backup. Training from scratch remains a research program whose feasibility on available resources has not been confirmed.
 
-## 1. Два режима работ
+## 1. Two modes of work
 
-**Адаптация совместимых обученных компонентов** — первый практический путь. Сначала фиксируется качество без изменений, затем выполняется ограниченное дообучение и повторная оценка.
+**Adaptation of compatible pretrained components** is the first practical path. Quality is first established without changes, then limited fine-tuning and re-evaluation are performed.
 
-**Обучение фундаментальных компонентов с нуля** — отдельная исследовательская программа. Она требует текстового корпуса, аудиокорпуса, двухканальных диалогов, модели-учителя для семантических признаков и достаточного вычислительного бюджета. Срок и стоимость нельзя оценить по одной архитектурной таблице.
+**Training foundational components from scratch** is a separate research program. It requires a text corpus, an audio corpus, two-channel dialogues, a teacher model for semantic features, and a sufficient compute budget. Timeline and cost cannot be estimated from a single architecture table alone.
 
-Начальная задача команды — адаптация и воспроизводимость. Собственные новые веса не считаются готовыми до разборчивой речи и прохождения диалоговой оценки.
+The team's initial task is adaptation and reproducibility. Newly trained own weights are not considered ready until intelligible speech is produced and the dialogue evaluation is passed.
 
-## 2. Артефакт модели
+## 2. Model artifact
 
-Каждый комплект содержит:
+Each bundle contains:
 
 ```text
 bundle/
@@ -29,100 +29,100 @@ bundle/
   generation_config.json
 ```
 
-Манифест задаёт schema version, идентификатор модели, SHA-256 файлов, язык оценки, dtype и происхождение каждого артефакта. Если компонент имеет обязательные условия использования или атрибуции, комплект должен им соответствовать. Пользовательское имя модели не заменяет эти метаданные.
+The manifest specifies the schema version, model identifier, SHA-256 of the files, evaluation language, dtype, and provenance of each artifact. If a component carries mandatory usage or attribution terms, the bundle must comply with them. A custom model name does not substitute for this metadata.
 
-Полная загрузка проверяется до добавления адаптера. Конвертация имён и layout выполняется отдельным скриптом с тестами; `strict=False` не является способом доказать совместимость.
+Full loading is verified before an adapter is added. Name and layout conversion is performed by a separate, tested script; `strict=False` is not a way to prove compatibility.
 
-## 3. Набор данных
+## 3. Dataset
 
-Основная единица — синхронный двухканальный диалог. Канал 0 — целевая речь aether, канал 1 — речь пользователя. Обе стороны имеют одинаковую временную ось и sample rate. Моно-запись с несколькими голосами не считается автоматически подходящим двухканальным примером.
+The core unit is a synchronized two-channel dialogue. Channel 0 is the target aether speech; channel 1 is the user's speech. Both sides share the same time axis and sample rate. A mono recording with multiple voices is not automatically considered a suitable two-channel example.
 
-Манифест JSONL, одна запись на разговор:
+JSONL manifest, one record per conversation:
 
 ```json
 {"id":"dialogue-0001","audio":"audio/dialogue-0001.wav","annotation":"annotations/dialogue-0001.json","sample_rate":24000,"channels":2,"duration_samples":240000,"language":"en","split":"train","speaker_ids":["s01","s02"],"source_id":"collection-a"}
 ```
 
-Пример аннотации:
+Annotation example:
 
 ```json
 {"schema_version":1,"segments":[{"speaker":1,"start_sample":12000,"end_sample":36000,"text":"Hello","words":[{"text":"Hello","start_sample":12000,"end_sample":36000}]}]}
 ```
 
-Границы полуоткрытые: `[start_sample, end_sample)`. Пересечение разных голосов разрешено. Некорректные отрицательные границы, конец за длительностью записи, неизвестный speaker и расхождение каналов отклоняются. Идентификаторы участников псевдонимизированы.
+Boundaries are half-open: `[start_sample, end_sample)`. Overlap between different voices is allowed. Invalid negative boundaries, an end past the recording duration, an unknown speaker, and channel mismatch are rejected. Participant identifiers are pseudonymized.
 
-## 4. Подготовка
+## 4. Preparation
 
-1. Проверить возможность использования и происхождение записи.
-2. Проверить декодирование, каналы, длительность, NaN, клиппинг и пустые файлы.
-3. Привести оба канала к одной частоте совместно, сохранив синхронность.
-4. Получить транскрипт с временными границами и вручную проверить выборку.
-5. Выполнить дедупликацию и разделение по участникам и разговорам.
-6. Получить аудиокоды замороженным кодеком.
-7. Сопоставить текстовые субтокены с временной сеткой и сформировать маски.
-8. Сохранить хэш исходной записи, версии кодека, токенизатора и преобразований.
+1. Usability and provenance of the recording are verified.
+2. Decoding, channels, duration, NaNs, clipping, and empty files are checked.
+3. Both channels are resampled to a common rate together, preserving synchrony.
+4. A transcript with time boundaries is obtained, and a sample is manually reviewed.
+5. Deduplication and splitting by speaker and conversation are performed.
+6. Audio codes are obtained with the frozen codec.
+7. Text subtokens are mapped to the time grid and masks are formed.
+8. The hash of the source recording, and the codec, tokenizer, and transform versions, are saved.
 
-Кешированные коды инвалидируются при смене кодека или его параметров. Обрезка записи делается одинаково для обоих каналов. Границы чанков не должны терять пересечения или превращать паузы в пропуски времени.
+Cached codes are invalidated when the codec or its parameters change. Trimming of a recording is done identically for both channels. Chunk boundaries must not lose overlaps or turn pauses into time gaps.
 
-## 5. Выравнивание текста
+## 5. Text alignment
 
-При совместимости с готовыми весами используется схема выравнивания, соответствующая этим весам. Её нельзя заменить приближённой расстановкой слов без проверки.
+When compatible with pretrained weights, the alignment scheme matching those weights is used. It cannot be replaced with an approximate word placement without verification.
 
-Для собственного обучения предлагается отдельный версионированный алгоритм: токенизировать слово, распределить его субтокены по допустимым кадрам в пределах временного интервала и заполнить остальные позиции padding. Конфликты, когда субтокенов больше доступных кадров, помечаются для специальной обработки, а не молча перезаписываются.
+For in-house training, a separate versioned algorithm is proposed: tokenize the word, distribute its subtokens across the allowed frames within the time interval, and fill the remaining positions with padding. Conflicts, where there are more subtokens than available frames, are flagged for special handling rather than silently overwritten.
 
-Такой алгоритм — исследовательское решение, а не доказанная эквивалентность какой-либо готовой модели. Доля конфликтов, временной сдвиг и влияние на разборчивость измеряются. Сохранённая конфигурация выравнивания обязательна для каждого эксперимента.
+Such an algorithm is a research decision, not a proven equivalence to any pretrained model. The conflict rate, time shift, and impact on intelligibility are measured. A saved alignment configuration is mandatory for every experiment.
 
-## 6. Обучающий forward
+## 6. Training forward pass
 
-Вход: `[B,17,T]`. Применяются задержки из `model.md`, затем начальный шаг. Temporal получает прошлые сдвинутые значения; текстовая голова предсказывает следующий текст.
+Input: `[B,17,T]`. The delays from `model.md` are applied, followed by the initial step. Temporal receives past shifted values; the text head predicts the next text token.
 
-Depth обучается с teacher forcing: получает целевой текст и предыдущие целевые аудиокоды текущего сдвинутого шага. Текстовая и аудиоголовы выравниваются обратно с целями, недействительные начальные и хвостовые позиции исключаются.
+Depth is trained with teacher forcing: it receives the target text and the previous target audio codes of the current shifted step. The text and audio heads are aligned back with the targets; invalid initial and trailing positions are excluded.
 
-В базовом условном режиме loss считается по тексту aether и восьми его аудиокнигам. Пользовательские коды являются условием. Дополнительное предсказание речи пользователя — возможная отдельная цель с собственной конфигурацией голов и весов loss.
+In the base conditional setting, loss is computed on aether's text and its eight audio books. User codes serve as conditioning. Additional prediction of the user's speech is a possible separate objective with its own head configuration and loss weights.
 
 ```text
 L = λtext × mean_valid(CEtext)
   + Σq λq × mean_valid(CEaudio,q)
 ```
 
-Нормализация производится по числу валидных целей каждого компонента, а не по длине padded batch. При отсутствии валидных целей компонент пропускается корректно, без деления на ноль.
+Normalization is performed by the number of valid targets for each component, not by the padded batch length. When there are no valid targets, the component is skipped correctly, without division by zero.
 
-Teacher forcing может давать низкий loss и плохой живой диалог. Поэтому каждый сохраняемый кандидат проходит свободную генерацию на отложенных сценариях.
+Teacher forcing can produce low loss and poor live dialogue. Therefore, every saved candidate undergoes free-running generation on held-out scenarios.
 
-## 7. Этапы адаптации
+## 7. Adaptation stages
 
-### T0. Неизменённая модель
+### T0. Unmodified model
 
-Получить отчёт по речи, содержанию, задержке и памяти. Сохранить контрольные аудио и конфигурацию. Без этого последующее улучшение нельзя отделить от изменения стенда.
+A report on speech, content, latency, and memory is obtained. Reference audio and configuration are saved. Without this, subsequent improvement cannot be separated from changes to the test rig.
 
-### T1. Проверка обучающего контура
+### T1. Training loop verification
 
-На маленьком наборе убедиться, что loss конечен, градиенты приходят в выбранные параметры, замороженные веса не меняются, checkpoint восстанавливается, а один пример можно переобучить. Это техническая проверка, не оценка обобщения.
+On a small set, it is confirmed that loss is finite, gradients reach the selected parameters, frozen weights do not change, the checkpoint restores correctly, and a single example can be overfit. This is a technical check, not an evaluation of generalization.
 
-### T2. Ограниченное дообучение
+### T2. Limited fine-tuning
 
-Кодек заморожен. Выбрать либо адаптеры, либо ограниченный набор параметров. Зафиксировать target modules, rank, scaling, dropout, optimizer, learning rate, scheduler, clipping, batch size, accumulation и длину аудиосегмента. Числа выбираются после профиля памяти и маленького пилота.
+The codec is frozen. Either adapters or a limited parameter set are selected. Target modules, rank, scaling, dropout, optimizer, learning rate, scheduler, clipping, batch size, accumulation, and audio segment length are fixed. Numbers are chosen after a memory profile and a small pilot run.
 
-### T3. Повышение полезности
+### T3. Usefulness improvement
 
-Добавлять данные по конкретной выявленной ошибке: исправления, следование инструкции, краткость, факты, удержание контекста. Не менять одновременно язык, голос, архитектуру и политику диалога — иначе невозможно установить причину результата.
+Data is added targeting a specific identified error: corrections, instruction following, conciseness, facts, context retention. Language, voice, architecture, and dialogue policy are not changed simultaneously — otherwise the cause of the result cannot be established.
 
-### T4. Новый язык и архитектурные изменения
+### T4. New language and architectural changes
 
-Отдельно проверить покрытие токенизатора, качество кодека для языка и объём выровненных диалогов. Более сильная текстовая основа требует нового согласования с аудиосетью и не является обычной заменой пути к весам.
+Tokenizer coverage, codec quality for the language, and the volume of aligned dialogues are checked separately. A stronger text backbone requires new alignment with the audio network and is not a routine replacement of the weights path.
 
-## 8. Обучение кодека с нуля
+## 8. Training the codec from scratch
 
-Если это направление выбрано, сначала проводится самостоятельный эксперимент восстановления звука. Семантическая цель, квантование, adversarial loss и feature matching рассматриваются раздельно. Обучающие дискриминаторы не включаются в inference.
+If this direction is chosen, an independent audio-reconstruction experiment is conducted first. The semantic objective, quantization, adversarial loss, and feature matching are considered separately. Training discriminators are not included in inference.
 
-Проверяются коллапс кодовых книг, частоты использования кодов, разборчивость, тембр, задержка и streaming parity. Кодек фиксируется до массового кеширования токенов для диалоговой модели. Совместное изменение кодека и диалоговой модели требует пересоздания данных и повторной базовой оценки.
+Codebook collapse, code usage frequencies, intelligibility, timbre, latency, and streaming parity are checked. The codec is fixed before mass caching of tokens for the dialogue model. Jointly changing the codec and the dialogue model requires regenerating the data and re-running the baseline evaluation.
 
-## 9. Checkpoint и восстановление
+## 9. Checkpoint and recovery
 
-Checkpoint обучения содержит параметры модели или адаптера, optimizer, scheduler, scaler при его использовании, RNG для всех устройств, global step, позицию данных и конфигурацию. Inference export содержит только необходимые для вывода артефакты и манифест.
+A training checkpoint contains the model or adapter parameters, optimizer, scheduler, scaler (if used), RNG state for all devices, global step, data position, and configuration. An inference export contains only the artifacts necessary for inference and a manifest.
 
-Сохранение атомарное: запись во временное место, проверка, затем публикация завершённого checkpoint. Сбой записи не должен уничтожать последний исправный checkpoint. Восстановление проверяется сравнением следующего шага с непрерывным запуском в пределах заданного допуска.
+Saving is atomic: written to a temporary location, verified, then the completed checkpoint is published. A write failure must not destroy the last valid checkpoint. Recovery is verified by comparing the next step against a continuous run within a specified tolerance.
 
-## 10. Выбор результата
+## 10. Result selection
 
-Низкий validation loss сам по себе не является критерием выпуска. Кандидат принимается, если улучшает заранее выбранную содержательную метрику и не нарушает ограничения по разборчивости, перебиваниям, задержке и устойчивости. Отчёт включает неудачные сценарии и различия с базовой моделью.
+Low validation loss alone is not a release criterion. A candidate is accepted if it improves a pre-selected content metric and does not violate constraints on intelligibility, interruption handling, latency, and robustness. The report includes failure scenarios and differences from the baseline model.
