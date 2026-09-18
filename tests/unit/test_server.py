@@ -10,7 +10,7 @@ from aiohttp.test_utils import TestClient, TestServer
 
 from aether import backend, server, trainer
 from aether.protocol import AudioPacket
-from aether.server import LiveBackend, StreamOutput, _load_engine_once, make_app
+from aether.server import LiveBackend, StreamOutput, _load_engine_once, _warm_up, make_app
 
 START = {
     "type": "session.start",
@@ -233,6 +233,7 @@ def test_load_engine_once_applies_checkpoint_when_given(
     apply_checkpoint = Mock()
     monkeypatch.setattr(backend, "load_backend", load_backend)
     monkeypatch.setattr(trainer, "apply_checkpoint", apply_checkpoint)
+    monkeypatch.setattr(server, "_warm_up", Mock())
 
     factory = _load_engine_once("permit.json", checkpoint="checkpoints/step-000020")
 
@@ -253,6 +254,7 @@ def test_load_engine_once_skips_checkpoint_when_absent(
     apply_checkpoint = Mock()
     monkeypatch.setattr(backend, "load_backend", load_backend)
     monkeypatch.setattr(trainer, "apply_checkpoint", apply_checkpoint)
+    monkeypatch.setattr(server, "_warm_up", Mock())
 
     _load_engine_once("permit.json")
 
@@ -289,3 +291,30 @@ def test_live_backend_rewarms_on_every_session(monkeypatch: pytest.MonkeyPatch) 
 
     live.start(seed=2)  # A second, sequential session reusing the same instance.
     assert live.first is True
+
+
+def test_warm_up_runs_real_steps_and_releases_state() -> None:
+    FakeEngine.instances.clear()
+    engine = FakeEngine()
+
+    _warm_up(engine, steps=5)
+
+    assert engine.seed == 0
+    assert engine.steps == 5
+    assert engine.closed is True
+
+
+def test_warm_up_runs_before_the_service_accepts_connections(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    FakeEngine.instances.clear()
+    load_backend = Mock(return_value=object())
+    monkeypatch.setattr(backend, "load_backend", load_backend)
+    warmed: list[object] = []
+    monkeypatch.setattr(server, "_warm_up", lambda engine, **kw: warmed.append(engine))
+    monkeypatch.setattr(server, "LiveBackend", lambda b: FakeEngine())
+
+    factory = _load_engine_once("permit.json")
+
+    assert len(warmed) == 1
+    assert warmed[0] is factory()

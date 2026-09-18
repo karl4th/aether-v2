@@ -6,6 +6,7 @@ import asyncio
 import importlib
 import json
 import secrets
+import time
 import traceback
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -313,6 +314,29 @@ async def make_app(
     return app
 
 
+def _warm_up(engine: Engine, *, steps: int = 12) -> None:
+    """Run real forward passes on silent audio so CUDA kernels are compiled and
+    cached before the first real client connects, not during its live session.
+
+    The first few real steps of a cold model are routinely much slower than
+    steady state; without this, that slowdown showed up as a same-session
+    OVERLOAD (the bounded queue filling faster than it could be drained).
+    """
+    print(f"Warming up: running {steps} synthetic steps on silent audio...", flush=True)
+    silence = encode_pcm([0.0] * FRAME_SAMPLES)
+    engine.start(seed=0)
+    try:
+        timings = []
+        for _ in range(steps):
+            started = time.monotonic()
+            engine.step(silence)
+            timings.append(time.monotonic() - started)
+    finally:
+        engine.close()
+    low, mean, high = min(timings) * 1000, sum(timings) / len(timings) * 1000, max(timings) * 1000
+    print(f"Warm-up done: step time (ms) min={low:.0f} mean={mean:.0f} max={high:.0f}", flush=True)
+
+
 def _load_engine_once(
     permit_path: str, *, context: int = 256, checkpoint: str | None = None
 ) -> Callable[[], Engine]:
@@ -332,7 +356,9 @@ def _load_engine_once(
         print(f"Applying adapter checkpoint: {checkpoint}", flush=True)
         apply_checkpoint(backend, Path(checkpoint))
     engine = LiveBackend(backend)
-    print("Model loaded; starting the live service.", flush=True)
+    print("Model loaded.", flush=True)
+    _warm_up(engine)
+    print("Warmed up; starting the live service.", flush=True)
     return lambda: engine
 
 
