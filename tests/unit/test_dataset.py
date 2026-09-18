@@ -134,6 +134,45 @@ def test_download_bound_cleans_partial(tmp_path: Path, monkeypatch: pytest.Monke
     assert not destination.with_suffix(".gz.partial").exists()
 
 
+def test_download_retries_transient_transport_errors_then_succeeds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(dataset, "DOWNLOAD_RETRY_BASE_SECONDS", 0.0)
+    attempts = []
+
+    def flaky_urlopen(*_args: object, **_kwargs: object) -> io.BytesIO:
+        attempts.append(1)
+        if len(attempts) < 3:
+            raise dataset.urllib.error.URLError("<urlopen error _ssl.c:993: handshake timed out>")
+        return io.BytesIO(b"payload")
+
+    monkeypatch.setattr(dataset.urllib.request, "urlopen", flaky_urlopen)
+    destination = tmp_path / "archive.tar.gz"
+    dataset._download("https://example.invalid/archive", destination)
+    assert len(attempts) == 3
+    assert destination.read_bytes() == b"payload"
+    assert not destination.with_suffix(".gz.partial").exists()
+
+
+def test_download_gives_up_after_max_attempts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(dataset, "DOWNLOAD_RETRY_BASE_SECONDS", 0.0)
+    attempts = []
+
+    def always_fails(*_args: object, **_kwargs: object) -> io.BytesIO:
+        attempts.append(1)
+        raise dataset.urllib.error.URLError("<urlopen error _ssl.c:993: handshake timed out>")
+
+    monkeypatch.setattr(dataset.urllib.request, "urlopen", always_fails)
+    destination = tmp_path / "archive.tar.gz"
+    with pytest.raises(dataset.urllib.error.URLError):
+        dataset._download("https://example.invalid/archive", destination)
+    assert len(attempts) == dataset.DOWNLOAD_ATTEMPTS
+    assert not destination.exists()
+    assert not destination.with_suffix(".gz.partial").exists()
+
+
 def test_missing_archive_downloads_only_after_gate(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

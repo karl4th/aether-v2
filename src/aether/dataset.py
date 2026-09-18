@@ -9,7 +9,10 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import ssl
 import tarfile
+import time
+import urllib.error
 import urllib.request
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
@@ -30,6 +33,11 @@ ARCHIVES = {
 }
 MAX_ARCHIVE_BYTES = 500_000_000
 MAX_EXTRACTED_BYTES = 1_500_000_000
+DOWNLOAD_ATTEMPTS = 3
+DOWNLOAD_RETRY_BASE_SECONDS = 5.0
+# Transient transport failures (TLS handshake timeouts, resets, DNS blips) are
+# retried; a size-limit ValueError from inside the loop is not.
+_RETRYABLE_DOWNLOAD_ERRORS = (urllib.error.URLError, TimeoutError, ConnectionError, ssl.SSLError)
 
 
 @dataclass(frozen=True)
@@ -188,14 +196,25 @@ def _digest(path: Path) -> str:
 def _download(url: str, path: Path) -> None:
     partial = path.with_suffix(path.suffix + ".partial")
     try:
-        with urllib.request.urlopen(url, timeout=60) as response, partial.open("wb") as output:
-            total = 0
-            while chunk := response.read(1024 * 1024):
-                total += len(chunk)
-                if total > MAX_ARCHIVE_BYTES:
-                    raise ValueError("dataset archive exceeds download limit")
-                output.write(chunk)
-        partial.replace(path)
+        for attempt in range(1, DOWNLOAD_ATTEMPTS + 1):
+            try:
+                with (
+                    urllib.request.urlopen(url, timeout=60) as response,
+                    partial.open("wb") as output,
+                ):
+                    total = 0
+                    while chunk := response.read(1024 * 1024):
+                        total += len(chunk)
+                        if total > MAX_ARCHIVE_BYTES:
+                            raise ValueError("dataset archive exceeds download limit")
+                        output.write(chunk)
+                partial.replace(path)
+                return
+            except _RETRYABLE_DOWNLOAD_ERRORS:
+                partial.unlink(missing_ok=True)
+                if attempt == DOWNLOAD_ATTEMPTS:
+                    raise
+                time.sleep(DOWNLOAD_RETRY_BASE_SECONDS * attempt)
     finally:
         partial.unlink(missing_ok=True)
 
