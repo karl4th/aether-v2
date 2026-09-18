@@ -26,7 +26,7 @@ ATTRIBUTION = (
     "Guoguo Chen, Daniel Povey and Sanjeev Khudanpur (2015). CC BY 4.0. "
     "Selected short utterances; no alteration of source audio."
 )
-# Official archive checksums: https://openslr.elda.org/resources/31/md5sum.txt
+# Official archive checksums: https://openslr.trmal.net/resources/31/md5sum.txt
 ARCHIVES = {
     "train-clean-5": "5df7d4e78065366204ca6845bb08f490",
     "dev-clean-2": "6d7ab67ac6a1d2c993d050e16d61080d",
@@ -334,7 +334,7 @@ def prepare_dataset(
     for (split, checksum), limit in zip(ARCHIVES.items(), (max_train, max_eval), strict=True):
         archive = root / f"{split}.tar.gz"
         if not archive.exists():
-            _download(f"https://openslr.elda.org/resources/31/{archive.name}", archive)
+            _download(f"https://openslr.trmal.net/resources/31/{archive.name}", archive)
         if archive.stat().st_size > MAX_ARCHIVE_BYTES or _digest(archive) != checksum:
             raise ValueError(f"dataset archive checksum mismatch: {archive}")
         # Re-extract verified bytes; never trust an unverified completion marker.

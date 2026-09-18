@@ -186,7 +186,7 @@ def test_missing_archive_downloads_only_after_gate(
 
     def download(url: str, path: Path) -> None:
         events.append("download")
-        assert url.startswith("https://openslr.elda.org/resources/31/")
+        assert url.startswith("https://openslr.trmal.net/resources/31/")
         path.write_bytes(contents)
 
     monkeypatch.setattr(dataset, "_download", download)
