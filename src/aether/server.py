@@ -159,8 +159,10 @@ async def make_app(
         tasks: list[asyncio.Task[Any]] = []
         reason = "disconnect"
         code: str | None = None
-        incoming: asyncio.Queue[bytes] = asyncio.Queue(maxsize=queue_frames)
-        outgoing: asyncio.Queue[tuple[int, StreamOutput]] = asyncio.Queue(maxsize=queue_frames)
+        incoming: asyncio.Queue[tuple[float, bytes]] = asyncio.Queue(maxsize=queue_frames)
+        outgoing: asyncio.Queue[tuple[int, float, StreamOutput]] = asyncio.Queue(
+            maxsize=queue_frames
+        )
         last_audio = loop.time()
         sequence = PacketSequence(1)
         buffer = PCMBuffer(max_queue_frames=queue_frames)
@@ -175,7 +177,7 @@ async def make_app(
                         return "CONTEXT_LIMIT"
                     buffer.push(packet.pcm)
                     while (frame := buffer.pop()) is not None:
-                        incoming.put_nowait(frame.pcm)
+                        incoming.put_nowait((loop.time(), frame.pcm))
                 elif message.type == aiohttp.WSMsgType.TEXT:
                     if len(message.data.encode()) > MAX_CONTROL_BYTES:
                         raise ValueError("Oversized control message")
@@ -190,7 +192,7 @@ async def make_app(
             assert engine is not None
             index = 0
             while True:
-                pcm = await incoming.get()
+                captured_at, pcm = await incoming.get()
                 try:
                     output = await worker(engine.step, pcm)
                     if output is not None:
@@ -200,13 +202,13 @@ async def make_app(
                 except Exception as error:
                     raise RuntimeError("Model generation failed") from error
                 if output is not None:
-                    outgoing.put_nowait((index, output))
+                    outgoing.put_nowait((index, captured_at, output))
                     index += 1
 
         async def send() -> str:
             out_sequence = offset = 0
             while True:
-                index, output = await outgoing.get()
+                index, captured_at, output = await outgoing.get()
                 # Packet.encode validates model output before crossing the trust boundary.
                 packet = AudioPacket(2, out_sequence, offset, output.pcm)
                 await asyncio.wait_for(ws.send_bytes(packet.encode()), audio_timeout)
@@ -218,6 +220,18 @@ async def make_app(
                             {"type": "text.output", "frame_index": index, "text": output.text}
                         ),
                         audio_timeout,
+                    )
+                # A bounded queue absorbs transient spikes without ever going OVERLOAD,
+                # but if the pipeline is even slightly slower than real-time on average,
+                # the backlog still grows every frame and the conversation quietly drifts
+                # into delayed playback. Periodic depth/latency samples make that drift
+                # visible before it reaches the queue capacity and finally trips OVERLOAD.
+                if out_sequence % 25 == 0:
+                    pipeline_latency_ms = (loop.time() - captured_at) * 1000
+                    print(
+                        f"pipeline: queue depth in={incoming.qsize()} out={outgoing.qsize()} "
+                        f"latency={pipeline_latency_ms:.0f}ms (capture to send, server-side only)",
+                        flush=True,
                     )
 
         async def watchdog() -> str:

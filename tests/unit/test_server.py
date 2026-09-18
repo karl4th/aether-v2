@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
+from aiohttp import WSMsgType
 from aiohttp.test_utils import TestClient, TestServer
 
 from aether import backend, server, trainer
@@ -208,6 +209,28 @@ def test_queue_frames_parameter_controls_overload_threshold() -> None:
             await ws.close()
 
     asyncio.run(run())
+
+
+def test_pipeline_metrics_are_logged_periodically(capsys: pytest.CaptureFixture[str]) -> None:
+    """A bounded queue absorbs spikes without erroring, but a pipeline that is even
+    slightly slower than real-time still drifts into delayed playback silently;
+    this is the only visibility into that drift before it finally hits OVERLOAD."""
+    FakeEngine.instances.clear()
+
+    async def run() -> None:
+        async with TestClient(TestServer(await make_app(FakeEngine, queue_frames=30))) as client:
+            ws = await connect(client)
+            for index in range(26):
+                await ws.send_bytes(audio_packet(index))
+            binary_count = 0
+            while binary_count < 25:
+                frame = await ws.receive()
+                if frame.type == WSMsgType.BINARY:
+                    binary_count += 1
+            await ws.close()
+
+    asyncio.run(run())
+    assert "pipeline: queue depth" in capsys.readouterr().out
 
 
 def test_context_limit_closes_session() -> None:

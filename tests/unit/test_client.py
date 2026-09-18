@@ -171,6 +171,22 @@ def test_server_reported_error_is_raised(monkeypatch: pytest.MonkeyPatch) -> Non
         asyncio.run(client.talk("wss://example.invalid/live"))
 
 
+def test_out_of_order_server_packet_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Sequence 1 with no preceding sequence 0: the server side enforces this same
+    # discipline on the client's uplink via PacketSequence(1); the downlink must
+    # not be exempt just because it happens to be TCP-ordered in practice.
+    ws = FakeWebSocket(
+        [Message("binary", AudioPacket(2, 1, 1920, bytes(1920 * 4)).encode())],
+        ready={"type": "session.ready"},
+    )
+    closed: list[str] = []
+    modules = {"aiohttp": fake_aiohttp(ws), "sounddevice": fake_sounddevice(closed)}
+    monkeypatch.setattr(client.importlib, "import_module", modules.__getitem__)
+
+    with pytest.raises(ValueError, match="PROTOCOL_ERROR"):
+        asyncio.run(client.talk("wss://example.invalid/live"))
+
+
 def test_audio_bridge_output_callback_pads_silence_and_reports_status() -> None:
     bridge = client.AudioBridge()
     outdata = bytearray(8)

@@ -72,10 +72,12 @@ async def _send_loop(
         sequence.next_offset += len(pcm) // 4
 
 
-async def _receive_loop(ws: Any, bridge: AudioBridge, aiohttp: Any) -> None:
+async def _receive_loop(
+    ws: Any, bridge: AudioBridge, aiohttp: Any, sequence: PacketSequence
+) -> None:
     async for message in ws:
         if message.type == aiohttp.WSMsgType.BINARY:
-            packet = AudioPacket.decode(message.data)
+            packet = sequence.accept(message.data)
             try:
                 bridge.playback.put_nowait(packet.pcm)
             except queue.Full:
@@ -145,10 +147,11 @@ async def talk(
                 ),
             ):
                 sequence = PacketSequence(1)
+                receive_sequence = PacketSequence(2)
                 deadline = loop.time() + duration if duration is not None else None
                 tasks = [
                     asyncio.create_task(_send_loop(ws, bridge, sequence, deadline)),
-                    asyncio.create_task(_receive_loop(ws, bridge, aiohttp)),
+                    asyncio.create_task(_receive_loop(ws, bridge, aiohttp, receive_sequence)),
                 ]
                 done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
                 for task in pending:
