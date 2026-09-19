@@ -367,6 +367,7 @@ def train(
         scheduler.step()
         torch.cuda.synchronize()
         step += 1
+        step_elapsed = time.monotonic() - step_started
         history.append(
             {
                 "step": step,
@@ -374,12 +375,23 @@ def train(
                 "tokens": token_count,
                 "microbatches": config.accumulation_steps,
                 "gradient_norm": float(norm.item()),
-                "elapsed_seconds": time.monotonic() - step_started,
+                "elapsed_seconds": step_elapsed,
                 "peak_cuda_bytes": int(torch.cuda.max_memory_allocated()),
             }
         )
+        # A long run with no output looks identical to a hung one; a caller
+        # streaming this process's stdout needs per-step evidence of progress.
+        average_step = (time.monotonic() - started) / step
+        remaining = max(0, stop_step - step) * average_step
+        print(
+            f"step {step}/{stop_step}: audio_ce={history[-1]['audio_ce']:.4f} "
+            f"grad_norm={history[-1]['gradient_norm']:.2f} step_time={step_elapsed:.2f}s "
+            f"eta={remaining / 60:.1f}min",
+            flush=True,
+        )
         if step % config.save_every == 0 or step == stop_step:
             checkpoint = _save(backend, optimizer, scheduler, metadata, output_dir, step, history)
+            print(f"checkpoint saved at step {step}: {checkpoint}", flush=True)
     return {
         "step": step,
         "checkpoint": str(checkpoint) if checkpoint is not None else None,
